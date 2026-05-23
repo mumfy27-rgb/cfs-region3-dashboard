@@ -3,8 +3,10 @@ import requests
 import pygame
 from datetime import datetime
 import winsound
+import json
 
 CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json"
+INCIDENT_LOG_FILE =  "incident_log.json"
 
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
@@ -68,6 +70,21 @@ def draw_text(screen, text, font, colour, x, y):
     image = font.render(str(text), True, colour)
     screen.blit(image, (x, y))
 
+def save_incident_log(incidents):
+    log_entry = {
+        "saved_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+        "incident_count": len(incidents),
+        "incidents": incidents,
+    }
+    try:
+        with open(INCIDENT_LOG_FILE, "a") as file:
+            file.write(json.dumps(log_entry))
+            file.write("\n")
+
+
+    except Exception as error:
+        print(f"Could not save incident log: {error}")
+
 
 def main():
     pygame.init()
@@ -103,6 +120,7 @@ def main():
                     incident for incident in all_incidents
                     if is_region_3_incident(incident)
                 ]
+                save_incident_log(incidents)
 
                 current_ids = {
                     incident.get("IncidentNo")
