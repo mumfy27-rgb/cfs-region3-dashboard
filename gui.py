@@ -6,8 +6,8 @@ import winsound
 
 CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json"
 
-SCREEN_WIDTH = 1200
-SCREEN_HEIGHT = 720
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
 REFRESH_SECONDS = 60
 
 REGION_3_KEYWORDS = [
@@ -72,12 +72,13 @@ def draw_text(screen, text, font, colour, x, y):
 def main():
     pygame.init()
 
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption("CFS Region 3 Incident Dashboard")
 
-    title_font = pygame.font.SysFont("consolas", 30, bold=True)
-    header_font = pygame.font.SysFont("consolas", 22, bold=True)
-    normal_font = pygame.font.SysFont("consolas", 18)
+    title_font = pygame.font.SysFont("consolas", 42, bold=True)
+    header_font = pygame.font.SysFont("consolas", 30, bold=True)
+    normal_font = pygame.font.SysFont("consolas", 24)
+
     seen_incident_ids = set()
     new_incident_ids = set()
 
@@ -85,6 +86,8 @@ def main():
 
     incidents = []
     last_updated = "Never"
+    selected_incident = None
+    incident_rows = []
     last_refresh_time = 0
     error_message = ""
 
@@ -112,26 +115,24 @@ def main():
                     winsound.Beep(1000, 500)
 
                 seen_incident_ids = current_ids
-
                 last_updated = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 error_message = ""
-
 
             except Exception as error:
                 error_message = str(error)
 
             last_refresh_time = now
 
-
-
-
-
-               
-        
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+
+                for rect, incident in incident_rows:
+                    if rect.collidepoint(mouse_pos):
+                        selected_incident = incident
 
         screen.fill((10, 15, 25))
 
@@ -139,7 +140,9 @@ def main():
         draw_text(screen, f"Last updated: {last_updated}", normal_font, (220, 220, 220), 30, 75)
         draw_text(screen, f"Current Region 3 incidents: {len(incidents)}", header_font, (255, 255, 255), 30, 115)
 
-        pygame.draw.line(screen, (80, 80, 100), (30, 150), (1170, 150), 2)
+        pygame.draw.line(screen, (80, 80, 100), (30, 150), (1570, 150), 2)
+
+        incident_rows = []
 
         if error_message:
             draw_text(screen, "Could not load Public CFS Incident Feed", header_font, (255, 80, 80), 30, 180)
@@ -155,20 +158,44 @@ def main():
                 incident_type = incident.get("Type")
                 colour = get_incident_colour(incident_type)
 
-                pygame.draw.rect(screen, (20, 30, 45), (30, y - 8, 1140, 42), border_radius=8)
+                row_rect = pygame.Rect(30, y - 8, 700, 42)
+                incident_rows.append((row_rect, incident))
+
+                pygame.draw.rect(screen, (20, 30, 45), row_rect, border_radius=8)
                 pygame.draw.rect(screen, colour, (30, y - 8, 8, 42), border_radius=4)
 
-                
                 draw_text(screen, incident.get("IncidentNo"), normal_font, colour, 55, y)
 
                 if incident.get("IncidentNo") in new_incident_ids:
                     draw_text(screen, "NEW", normal_font, (255, 255, 0), 1120, y)
+
                 draw_text(screen, incident_type, normal_font, colour, 190, y)
                 draw_text(screen, incident.get("Location_name"), normal_font, (230, 230, 230), 460, y)
-                draw_text(screen, incident.get("Status"), normal_font, (180, 180, 180), 850, y)
-                draw_text(screen, incident.get("Time"), normal_font, (180, 180, 180), 1030, y)
+                draw_text(screen, incident.get("Status"), normal_font, (180, 180, 180), 980, y)
 
                 y += 52
+
+        pygame.draw.rect(screen, (15, 22, 35), (1250, 170, 620, 800), border_radius=10)
+        pygame.draw.rect(screen, (80, 80, 100), (1250, 170, 620 ,800), 2, border_radius=10)
+
+        draw_text(screen, "INCIDENT DETAILS", header_font, (255, 255, 255), 1280, 190)
+
+        if selected_incident is not None:
+            detail_type = selected_incident.get("Type")
+            detail_colour = get_incident_colour(detail_type)
+
+            draw_text(screen, f"Incident: {selected_incident.get('IncidentNo')}", normal_font, detail_colour, 1250, 240)
+            draw_text(screen, f"Type: {detail_type}", normal_font, detail_colour, 1250, 275)
+            draw_text(screen, f"Status: {selected_incident.get('Status')}", normal_font, (220, 220, 220), 1250, 310)
+            draw_text(screen, f"Region: {selected_incident.get('Region')}", normal_font, (220, 220, 220), 1250, 345)
+            draw_text(screen, f"Location: {selected_incident.get('Location_name')}", normal_font, (220, 220, 220), 1250, 380)
+            draw_text(screen, f"Resources: {selected_incident.get('Resources')}", normal_font, (220, 220, 220), 1250, 415)
+            draw_text(screen, f"Aircraft: {selected_incident.get('Aircraft')}", normal_font, (220, 220, 220), 1250, 450)
+            draw_text(screen, f"Date: {selected_incident.get('Date')}", normal_font, (220, 220, 220), 1250, 485)
+            draw_text(screen, f"Time: {selected_incident.get('Time')}", normal_font, (220, 220, 220), 1250, 520)
+
+        else:
+            draw_text(screen, "Click an incident on the left.", normal_font, (180, 180, 180), 1250, 240)
 
         seconds_until_refresh = int(REFRESH_SECONDS - (time.time() - last_refresh_time))
         draw_text(screen, f"Refresh in: {max(seconds_until_refresh, 0)} seconds", normal_font, (160, 160, 160), 30, 680)
