@@ -2,6 +2,7 @@ import time
 import requests
 import pygame
 from datetime import datetime
+import winsound
 
 CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json"
 
@@ -77,6 +78,8 @@ def main():
     title_font = pygame.font.SysFont("consolas", 30, bold=True)
     header_font = pygame.font.SysFont("consolas", 22, bold=True)
     normal_font = pygame.font.SysFont("consolas", 18)
+    seen_incident_ids = set()
+    new_incident_ids = set()
 
     clock = pygame.time.Clock()
 
@@ -97,12 +100,34 @@ def main():
                     incident for incident in all_incidents
                     if is_region_3_incident(incident)
                 ]
+
+                current_ids = {
+                    incident.get("IncidentNo")
+                    for incident in incidents
+                }
+
+                new_incident_ids = current_ids - seen_incident_ids
+
+                if new_incident_ids and seen_incident_ids:
+                    winsound.Beep(1000, 500)
+
+                seen_incident_ids = current_ids
+
                 last_updated = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 error_message = ""
+
+
             except Exception as error:
                 error_message = str(error)
 
             last_refresh_time = now
+
+
+
+
+
+               
+        
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -133,7 +158,11 @@ def main():
                 pygame.draw.rect(screen, (20, 30, 45), (30, y - 8, 1140, 42), border_radius=8)
                 pygame.draw.rect(screen, colour, (30, y - 8, 8, 42), border_radius=4)
 
+                
                 draw_text(screen, incident.get("IncidentNo"), normal_font, colour, 55, y)
+
+                if incident.get("IncidentNo") in new_incident_ids:
+                    draw_text(screen, "NEW", normal_font, (255, 255, 0), 1120, y)
                 draw_text(screen, incident_type, normal_font, colour, 190, y)
                 draw_text(screen, incident.get("Location_name"), normal_font, (230, 230, 230), 460, y)
                 draw_text(screen, incident.get("Status"), normal_font, (180, 180, 180), 850, y)
