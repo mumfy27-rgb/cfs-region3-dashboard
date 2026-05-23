@@ -86,6 +86,38 @@ def save_incident_log(incidents):
     except Exception as error:
         print(f"Could not save incident log: {error}")
 
+def calculate_stats(incidents):
+    stats = {
+        "fire": 0,
+        "mva": 0,
+        "rescue": 0,
+        "tree": 0, 
+        "other": 0,
+    }
+
+    for incident in incidents:
+        incident_type = str(incident.get("Type", "")).upper()
+
+        if "FIRE" in incident_type:
+            stats["fire"] += 1
+
+        elif "MVA" in incident_type:
+            stats["mva"] += 1
+
+        elif "RESCUE" in incident_type:
+            stats["rescue"] += 1
+
+        elif "TREE" in incident_type:
+            stats["tree"] += 1
+
+        else:
+            stats["other"] += 1
+
+    return stats
+
+
+
+
 
 def main():
     pygame.init()
@@ -214,6 +246,22 @@ def main():
         pygame.draw.rect(screen, (80, 80, 100), (1250, 170, 620 ,800), 2, border_radius=10)
 
         draw_text(screen, "INCIDENT DETAILS", header_font, (255, 255, 255), 1280, 190)
+
+
+        stats = calculate_stats(incidents)
+
+        pygame.draw.rect(screen, (15, 22, 35), (30, 760, 1180, 160), border_radius=10)
+        pygame.draw.rect(screen, (80, 80, 100), (30, 760, 1180, 160), 2, border_radius=10)
+
+        draw_text(screen, "INCIDENT STATS", header_font, (255, 255, 255), 55, 785)
+
+        draw_text(screen, f"FIRES: {stats['fire']}", normal_font, (253, 80, 80), 55, 835)
+        draw_text(screen, f"MVA: {stats['mva']}", normal_font, (255, 220, 80), 250, 835)
+        draw_text(screen, f"RESCUE: {stats['rescue']}", normal_font, (80, 200, 255), 420, 835)
+        draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 650, 835)
+        draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 850, 835)
+
+
 
         if selected_incident is not None:
             detail_type = selected_incident.get("Type")
