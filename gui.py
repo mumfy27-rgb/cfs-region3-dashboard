@@ -4,6 +4,7 @@ import pygame
 from datetime import datetime
 import winsound
 import json
+import math
 
 CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json"
 INCIDENT_LOG_FILE =  "incident_log.json"
@@ -100,6 +101,7 @@ def main():
     new_incident_ids = set()
 
     clock = pygame.time.Clock()
+    flash_timer = 0
 
     incidents = []
     last_updated = "Never"
@@ -112,6 +114,7 @@ def main():
 
     while running:
         now = time.time()
+        flash_timer += 0.08
 
         if now - last_refresh_time >= REFRESH_SECONDS or last_refresh_time == 0:
             try:
@@ -185,7 +188,21 @@ def main():
                 draw_text(screen, incident.get("IncidentNo"), normal_font, colour, 55, y)
 
                 if incident.get("IncidentNo") in new_incident_ids:
-                    draw_text(screen, "NEW", normal_font, (255, 255, 0), 1120, y)
+                    
+
+                    flash_value = abs(int(255 * math.sin(flash_timer)))
+
+
+                    flash_colour = (255, flash_value,0)
+
+                    pygame.draw.rect(
+                        screen,
+                        flash_colour,
+                        (1110, y - 4, 70, 30),
+                        border_radius= 6
+                    )
+
+                    draw_text(screen, "NEW", normal_font, (0, 0, 0), 1125, y)
 
                 draw_text(screen, incident_type, normal_font, colour, 190, y)
                 draw_text(screen, incident.get("Location_name"), normal_font, (230, 230, 230), 460, y)
