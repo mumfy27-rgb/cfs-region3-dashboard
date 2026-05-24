@@ -82,6 +82,9 @@ def get_incident_colour(incident_type):
     if "RESCUE" in incident_type:
         return (80, 200, 255)
     
+    if "SMOKE" in incident_type:
+        return (180, 180, 180)
+    
     if "HAZMAT" in incident_type:
         return (255, 0, 255)
     
@@ -126,6 +129,7 @@ def calculate_stats(incidents):
         "rescue": 0,
         "hazmat": 0,
         "burn": 0,
+        "smoke": 0,
         "tree": 0, 
         "other": 0,
     }
@@ -136,7 +140,7 @@ def calculate_stats(incidents):
         if "FIRE" in incident_type:
             stats["fire"] += 1
 
-        elif "MVA" in incident_type:
+        elif "MVA" in incident_type or "VEHICLE ACCIDENT" in incident_type:
             stats["mva"] += 1
 
         elif "RESCUE" in incident_type:
@@ -145,9 +149,16 @@ def calculate_stats(incidents):
         elif "HAZMAt" in incident_type:
             stats["hazmat"] += 1
 
-        elif "PRESCRIBED" in incident_type:
-            stats["burn"] += 1
+        elif "SMOKE" in incident_type:
+            stats["smoke"] += 1
 
+        elif (
+            "PRESCRIBED" in incident_type
+            or "BURN" in incident_type
+            or "BURN OFF" in incident_type
+        ):
+            stats["burn"] += 1
+        
         elif "TREE" in incident_type:
             stats["tree"] += 1
 
@@ -339,9 +350,14 @@ def main():
         draw_text(screen, f"HAZMAT: {stats['hazmat']}", normal_font, (255, 0, 255), 650, 835)
 
         draw_text(screen, f"BURNS: {stats['burn']}", normal_font, (255, 140, 0), 55, 880)
-        draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 300, 880)
-        draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 520, 880)
 
+        draw_text(screen, f"SMOKE: {stats['smoke']}", normal_font, (180, 180, 180), 320, 880)
+
+        draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 620, 880)
+
+        draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 860, 880)
+
+    
        
 # =========================================================
         if selected_incident is not None:
