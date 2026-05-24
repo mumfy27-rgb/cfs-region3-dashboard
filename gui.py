@@ -1,3 +1,13 @@
+# =========================================================
+# CFS INCIDENT DASHBOARD
+# REGION 3 / STATEWIDE OPERATIONS DASHBOARD
+# =========================================================
+
+
+
+# =========================================================
+# IMPORTS
+# =========================================================
 import time
 import requests
 import pygame
@@ -5,7 +15,9 @@ from datetime import datetime
 import winsound
 import json
 import math
-
+# =========================================================
+# CONFIGURATION
+# =========================================================
 CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json"
 INCIDENT_LOG_FILE =  "incident_log.json"
 
@@ -13,6 +25,9 @@ SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
 REFRESH_SECONDS = 60
 
+# =========================================================
+# REGION 3 FILTER KEYWORDS
+# =========================================================
 REGION_3_KEYWORDS = [
     "CALLINGTON", "ETTRICK", "JERVOIS", "MANNUM", "MONARTO",
     "MURRAY BRIDGE", "MYPOLONGA", "ROCKLEIGH", "TAILEM BEND",
@@ -27,13 +42,17 @@ REGION_3_KEYWORDS = [
     "GLOSSOP", "LYRUP", "MONASH", "MOOROOK", "PARINGA",
     "TAPLAN", "WUNKAR",
 ]
-
+# =========================================================
+# INCIDENT FETCHING
+# =========================================================
 
 def fetch_incidents():
     response = requests.get(CFS_INCIDENTS_URL, timeout=10)
     response.raise_for_status()
     return response.json()
-
+# =========================================================
+# INCIDENT FILTERING
+# =========================================================
 
 def is_region_3_incident(incident):
     location = str(incident.get("Location_name", "")).upper()
@@ -48,7 +67,9 @@ def is_region_3_incident(incident):
 
     return False
 
-
+# =========================================================
+# UI COLOURS
+# =========================================================
 def get_incident_colour(incident_type):
     incident_type = str(incident_type).upper()
 
@@ -65,12 +86,16 @@ def get_incident_colour(incident_type):
         return (80, 255, 120)
 
     return (220, 220, 220)
-
+# =========================================================
+# DRAWING HELPERS
+# =========================================================
 
 def draw_text(screen, text, font, colour, x, y):
     image = font.render(str(text), True, colour)
     screen.blit(image, (x, y))
-
+# =========================================================
+# INCIDENT LOGGING
+# =========================================================
 def save_incident_log(incidents):
     log_entry = {
         "saved_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
@@ -85,7 +110,9 @@ def save_incident_log(incidents):
 
     except Exception as error:
         print(f"Could not save incident log: {error}")
-
+# =========================================================
+# INCIDENT STATISTICS
+# =========================================================
 def calculate_stats(incidents):
     stats = {
         "fire": 0,
@@ -114,7 +141,9 @@ def calculate_stats(incidents):
             stats["other"] += 1
 
     return stats
-
+# =========================================================
+# MAP SYSTEM
+# =========================================================
 def lation_to_screen(lat, lon):
     #  rough region 3 bonding box
     min_lat = -36.5
@@ -132,7 +161,9 @@ def lation_to_screen(lat, lon):
 
     return int(x), int(y)
 
-
+# =========================================================
+# MAIN APPLICATION
+# =========================================================
 
 def main():
     pygame.init()
@@ -159,7 +190,9 @@ def main():
     error_message = ""
 
     running = True
-
+# =========================================================
+# MAIN LOOP
+# =========================================================
     while running:
         now = time.time()
         flash_timer += 0.08
@@ -196,7 +229,9 @@ def main():
                 error_message = str(error)
 
             last_refresh_time = now
-
+# =========================================================
+# EVENT HANDLING
+# =========================================================
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -216,7 +251,9 @@ def main():
                 if event.key == pygame.K_s:
                     filter_mode = "STATEWIDE"
                     last_refresh_time = 0
-
+# =========================================================
+# DASHBOARD DRAWING
+# =========================================================
         screen.fill((10, 15, 25))
 
         draw_text(screen, f"PUBLIC CFS {filter_mode} INCIDENT DASHBOARD", title_font, (255, 80, 80), 30, 25)
@@ -237,7 +274,10 @@ def main():
 
         else:
             y = 205
-
+# =========================================================
+# INCIDENT LIST
+# =========================================================
+            
             for incident in incidents[:12]:
                 incident_type = incident.get("Type")
                 colour = get_incident_colour(incident_type)
@@ -286,7 +326,9 @@ def main():
         draw_text(screen, f"RESCUE: {stats['rescue']}", normal_font, (80, 200, 255), 420, 835)
         draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 650, 835)
         draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 850, 835)
-
+# =========================================================
+# INCIDENT DETAILS PANEL
+# =========================================================
         if selected_incident is not None:
             detail_type = selected_incident.get("Type")
             detail_colour = get_incident_colour(detail_type)
@@ -334,7 +376,9 @@ def main():
 
             except:
                 pass
-
+# =========================================================
+# MAP PANEL
+# =========================================================
         if mapped_incidents == 0:
             draw_text(
                 screen,
