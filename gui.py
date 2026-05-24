@@ -138,7 +138,7 @@ def main():
     pygame.init()
 
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
-    pygame.display.set_caption("CFS Region 3 Incident Dashboard")
+    pygame.display.set_caption("CFS Incident Dashboard")
 
     title_font = pygame.font.SysFont("consolas", 42, bold=True)
     header_font = pygame.font.SysFont("consolas", 30, bold=True)
@@ -153,6 +153,7 @@ def main():
     incidents = []
     last_updated = "Never"
     selected_incident = None
+    filter_mode = "REGION 3"
     incident_rows = []
     last_refresh_time = 0
     error_message = ""
@@ -166,16 +167,21 @@ def main():
         if now - last_refresh_time >= REFRESH_SECONDS or last_refresh_time == 0:
             try:
                 all_incidents = fetch_incidents()
-                incidents = [
-                    incident for incident in all_incidents
-                    if is_region_3_incident(incident)
-                ]
+
+                if filter_mode == "REGION 3":
+                    incidents = [
+                        item for item in all_incidents
+                        if is_region_3_incident(item)
+                    ]
+                else:
+                    incidents = all_incidents
+
                 save_incident_log(incidents)
 
-                current_ids = {
-                    incident.get("IncidentNo")
-                    for incident in incidents
-                }
+                current_ids = set()
+
+                for item in incidents:
+                    current_ids.add(item.get("IncidentNo"))
 
                 new_incident_ids = current_ids - seen_incident_ids
 
@@ -202,31 +208,41 @@ def main():
                     if rect.collidepoint(mouse_pos):
                         selected_incident = incident
 
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    filter_mode = "REGION 3"
+                    last_refresh_time = 0
+
+                if event.key == pygame.K_s:
+                    filter_mode = "STATEWIDE"
+                    last_refresh_time = 0
+
         screen.fill((10, 15, 25))
 
-        draw_text(screen, "PUBLIC CFS REGION 3 INCIDENT DASHBOARD", title_font, (255, 80, 80), 30, 25)
+        draw_text(screen, f"PUBLIC CFS {filter_mode} INCIDENT DASHBOARD", title_font, (255, 80, 80), 30, 25)
         draw_text(screen, f"Last updated: {last_updated}", normal_font, (220, 220, 220), 30, 75)
-        draw_text(screen, f"Current Region 3 incidents: {len(incidents)}", header_font, (255, 255, 255), 30, 115)
+        draw_text(screen, f"Current {filter_mode} incidents: {len(incidents)}", header_font, (255, 255, 255), 30, 115)
+        draw_text(screen, "Press R = Region 3 | Press S = Statewide", normal_font, (160, 160, 160), 30, 145)
 
-        pygame.draw.line(screen, (80, 80, 100), (30, 150), (1570, 150), 2)
+        pygame.draw.line(screen, (80, 80, 100), (30, 175), (1570, 175), 3)
 
         incident_rows = []
 
         if error_message:
-            draw_text(screen, "Could not load Public CFS Incident Feed", header_font, (255, 80, 80), 30, 180)
-            draw_text(screen, error_message, normal_font, (255, 180, 180), 30, 215)
+            draw_text(screen, "Could not load Public CFS Incident Feed", header_font, (255, 80, 80), 30, 190)
+            draw_text(screen, error_message, normal_font, (255, 180, 180), 30, 230)
 
         elif not incidents:
-            draw_text(screen, "No Current Region 3 incidents found.", header_font, (80, 255, 120), 30, 190)
+            draw_text(screen, "No Current incidents found.", header_font, (80, 255, 120), 30, 190)
 
         else:
-            y = 180
+            y = 205
 
             for incident in incidents[:12]:
                 incident_type = incident.get("Type")
                 colour = get_incident_colour(incident_type)
 
-                row_rect = pygame.Rect(30, y - 8, 700, 42)
+                row_rect = pygame.Rect(30, y - 8, 1180, 42)
                 incident_rows.append((row_rect, incident))
 
                 pygame.draw.rect(screen, (20, 30, 45), row_rect, border_radius=8)
@@ -235,18 +251,14 @@ def main():
                 draw_text(screen, incident.get("IncidentNo"), normal_font, colour, 55, y)
 
                 if incident.get("IncidentNo") in new_incident_ids:
-                    
-
                     flash_value = abs(int(255 * math.sin(flash_timer)))
-
-
-                    flash_colour = (255, flash_value,0)
+                    flash_colour = (255, flash_value, 0)
 
                     pygame.draw.rect(
                         screen,
                         flash_colour,
                         (1110, y - 4, 70, 30),
-                        border_radius= 6
+                        border_radius=6
                     )
 
                     draw_text(screen, "NEW", normal_font, (0, 0, 0), 1125, y)
@@ -258,10 +270,9 @@ def main():
                 y += 52
 
         pygame.draw.rect(screen, (15, 22, 35), (1250, 170, 620, 800), border_radius=10)
-        pygame.draw.rect(screen, (80, 80, 100), (1250, 170, 620 ,800), 2, border_radius=10)
+        pygame.draw.rect(screen, (80, 80, 100), (1250, 170, 620, 800), 2, border_radius=10)
 
         draw_text(screen, "INCIDENT DETAILS", header_font, (255, 255, 255), 1280, 190)
-
 
         stats = calculate_stats(incidents)
 
@@ -275,8 +286,6 @@ def main():
         draw_text(screen, f"RESCUE: {stats['rescue']}", normal_font, (80, 200, 255), 420, 835)
         draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 650, 835)
         draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 850, 835)
-
-
 
         if selected_incident is not None:
             detail_type = selected_incident.get("Type")
@@ -300,7 +309,7 @@ def main():
         pygame.draw.rect(screen, (15, 22, 35), (30, 930, 1180, 120), border_radius=10)
         pygame.draw.rect(screen, (80, 80, 100), (30, 930, 1180, 120), 2, border_radius=10)
 
-        draw_text(screen, "REGION 3 MAP VIEW", header_font, (255, 255, 255), 55, 950)
+        draw_text(screen, f"{filter_mode} MAP VIEW", header_font, (255, 255, 255), 55, 950)
 
         mapped_incidents = 0
 
@@ -312,32 +321,31 @@ def main():
                 x, y = lation_to_screen(lat, lon)
                 mapped_incidents += 1
 
-                incident_type = incident.get("Typw")
+                incident_type = incident.get("Type")
                 colour = get_incident_colour(incident_type)
 
                 radius = 8
 
-                if incident.get("IncidentNO") in new_incident_ids:
+                if incident.get("IncidentNo") in new_incident_ids:
                     radius = 8 + int(abs(6 * math.sin(flash_timer)))
-                
+
                 pygame.draw.circle(screen, colour, (x, y), radius)
-                pygame.draw.circle(screen, (255, 255, 255), (x, y). radius, 2)
+                pygame.draw.circle(screen, (255, 255, 255), (x, y), radius, 2)
 
             except:
                 pass
 
-            if mapped_incidents == 0:
-                draw_text(
-                    screen,
-                    "No Mappable incidents",
-                    normal_font,
-                    (180, 180, 180),
-                    55,
-                    995
-                )
+        if mapped_incidents == 0:
+            draw_text(
+                screen,
+                "No mappable incidents",
+                normal_font,
+                (180, 180, 180),
+                55,
+                995
+            )
 
         draw_text(screen, f"Refresh in: {max(seconds_until_refresh, 0)} seconds", normal_font, (160, 160, 160), 1250, 1010)
-
 
         pygame.display.flip()
         clock.tick(60)
