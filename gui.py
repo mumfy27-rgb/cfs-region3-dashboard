@@ -15,11 +15,15 @@ from datetime import datetime
 import winsound
 import json
 import math
+from bs4 import BeautifulSoup
+
 # =========================================================
 # CONFIGURATION
 # =========================================================
 CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json"
+PAGER_URL = "http://www.urgmsg.net/livenosaas/"
 INCIDENT_LOG_FILE =  "incident_log.json"
+
 
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
@@ -166,25 +170,48 @@ def calculate_stats(incidents):
             stats["other"] += 1
 
     return stats
-# =========================================================
-# MAP SYSTEM
-# =========================================================
-def lation_to_screen(lat, lon):
-    #  rough region 3 bonding box
-    min_lat = -36.5
-    max_lat = -33.8
-    min_lon = 138.5
-    max_lon = 141.2
+# =================================================================================
+# PAGER FEED SCRAPER
+# ================================================================================
 
-    map_x = 30
-    map_y = 930
-    map_width = 1180
-    map_height = 120
+def fetch_pager_message(incident_no):
+    if not incident_no:
+        return "No Incident number available"
+    
+    try:
+        response = requests.get(PAGER_URL, timeout=5)
+        response.raise_for_status()
 
-    x = map_x + ((lon - min_lon) / (max_lon - min_lon))* map_width
-    y = map_y + ((max_lat - lat) / (max_lat - min_lat))* map_height
+        soup = BeautifulSoup(response.text, "html.parser")
+        page_text = soup.get_text("\n")
 
-    return int(x), int(y)
+        for line in page_text.splitlines():
+            clean_line = line.strip()
+
+            if incident_no in clean_line:
+                return clean_line
+            
+
+    except Exception:
+        return "Pager Message Unavailable."
+    
+#====================================================================================
+# GOING JOBS TO TOP
+#=======================================================================================
+def get_status_priority(incident):
+    status = str(incident.get("Status","")).upper()
+
+    if "GOING" in status:
+        return 0
+    if "RESPONDING" in status:
+        return 1
+    if "MONITOR" in status:
+        return 2
+    if "CONTROLLED" in status:
+        return 3
+    
+    return 4
+
 
 # =========================================================
 # MAIN APPLICATION
@@ -233,6 +260,8 @@ def main():
                     ]
                 else:
                     incidents = all_incidents
+
+                incidents.sort(key=get_status_priority)
 
                 save_incident_log(incidents)
 
@@ -377,6 +406,8 @@ def main():
             draw_text(screen, f"Aircraft: {selected_incident.get('Aircraft')}", normal_font, (220, 220, 220), 1250, 450)
             draw_text(screen, f"Date: {selected_incident.get('Date')}", normal_font, (220, 220, 220), 1250, 485)
             draw_text(screen, f"Time: {selected_incident.get('Time')}", normal_font, (220, 220, 220), 1250, 520)
+
+       
 
         else:
             draw_text(screen, "Click an incident on the left.", normal_font, (180, 180, 180), 1250, 240)
