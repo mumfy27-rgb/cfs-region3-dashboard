@@ -81,7 +81,13 @@ def get_incident_colour(incident_type):
 
     if "RESCUE" in incident_type:
         return (80, 200, 255)
-
+    
+    if "HAZMAT" in incident_type:
+        return (255, 0, 255)
+    
+    if "PRESCRIBED" in incident_type:
+        return (255, 140, 0)
+    
     if "TREE" in incident_type:
         return (80, 255, 120)
 
@@ -118,6 +124,8 @@ def calculate_stats(incidents):
         "fire": 0,
         "mva": 0,
         "rescue": 0,
+        "hazmat": 0,
+        "burn": 0,
         "tree": 0, 
         "other": 0,
     }
@@ -133,6 +141,12 @@ def calculate_stats(incidents):
 
         elif "RESCUE" in incident_type:
             stats["rescue"] += 1
+        
+        elif "HAZMAt" in incident_type:
+            stats["hazmat"] += 1
+
+        elif "PRESCRIBED" in incident_type:
+            stats["burn"] += 1
 
         elif "TREE" in incident_type:
             stats["tree"] += 1
@@ -319,15 +333,16 @@ def main():
         pygame.draw.rect(screen, (15, 22, 35), (30, 760, 1180, 160), border_radius=10)
         pygame.draw.rect(screen, (80, 80, 100), (30, 760, 1180, 160), 2, border_radius=10)
 
-        draw_text(screen, "INCIDENT STATS", header_font, (255, 255, 255), 55, 785)
-
         draw_text(screen, f"FIRES: {stats['fire']}", normal_font, (253, 80, 80), 55, 835)
-        draw_text(screen, f"MVA: {stats['mva']}", normal_font, (255, 220, 80), 250, 835)
+        draw_text(screen, f"MVA: {stats['mva']}", normal_font, (255, 220, 80), 240, 835)
         draw_text(screen, f"RESCUE: {stats['rescue']}", normal_font, (80, 200, 255), 420, 835)
-        draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 650, 835)
-        draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 850, 835)
-# =========================================================
-# INCIDENT DETAILS PANEL
+        draw_text(screen, f"HAZMAT: {stats['hazmat']}", normal_font, (255, 0, 255), 650, 835)
+
+        draw_text(screen, f"BURNS: {stats['burn']}", normal_font, (255, 140, 0), 55, 880)
+        draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 300, 880)
+        draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 520, 880)
+
+       
 # =========================================================
         if selected_incident is not None:
             detail_type = selected_incident.get("Type")
