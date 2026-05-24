@@ -357,9 +357,13 @@ def main():
 
         draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 860, 880)
 
+
+# =========================================================
+# INCIDENT DETAILS PANEL
+# =========================================================
     
        
-# =========================================================
+
         if selected_incident is not None:
             detail_type = selected_incident.get("Type")
             detail_colour = get_incident_colour(detail_type)
@@ -379,48 +383,9 @@ def main():
 
         seconds_until_refresh = int(REFRESH_SECONDS - (time.time() - last_refresh_time))
 
-        pygame.draw.rect(screen, (15, 22, 35), (30, 930, 1180, 120), border_radius=10)
-        pygame.draw.rect(screen, (80, 80, 100), (30, 930, 1180, 120), 2, border_radius=10)
+        
 
-        draw_text(screen, f"{filter_mode} MAP VIEW", header_font, (255, 255, 255), 55, 950)
-
-        mapped_incidents = 0
-
-        for incident in incidents:
-            try:
-                lat = float(incident.get("Latitude"))
-                lon = float(incident.get("Longitude"))
-
-                x, y = lation_to_screen(lat, lon)
-                mapped_incidents += 1
-
-                incident_type = incident.get("Type")
-                colour = get_incident_colour(incident_type)
-
-                radius = 8
-
-                if incident.get("IncidentNo") in new_incident_ids:
-                    radius = 8 + int(abs(6 * math.sin(flash_timer)))
-
-                pygame.draw.circle(screen, colour, (x, y), radius)
-                pygame.draw.circle(screen, (255, 255, 255), (x, y), radius, 2)
-
-            except:
-                pass
-# =========================================================
-# MAP PANEL
-# =========================================================
-        if mapped_incidents == 0:
-            draw_text(
-                screen,
-                "No mappable incidents",
-                normal_font,
-                (180, 180, 180),
-                55,
-                995
-            )
-
-        draw_text(screen, f"Refresh in: {max(seconds_until_refresh, 0)} seconds", normal_font, (160, 160, 160), 1250, 1010)
+        draw_text(screen, f"Refresh in: {max(seconds_until_refresh, 0)} seconds", normal_font, (160, 160, 160), 1250, 930)
 
         pygame.display.flip()
         clock.tick(60)
