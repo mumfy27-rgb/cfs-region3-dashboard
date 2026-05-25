@@ -16,13 +16,17 @@ import winsound
 import json
 import math
 from bs4 import BeautifulSoup
+import feedparser
 
 # =========================================================
 # CONFIGURATION
 # =========================================================
 CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json"
 PAGER_URL = "http://www.urgmsg.net/livenosaas/"
+RSS_WARNINGS_URL = "https://www.cfs.sa.gov.au/site/rss/warning_rss.jsp"
+RSS_BANS_URL = "https://www.cfs.sa.gov.au/site/rss/bans_rss.jsp"
 INCIDENT_LOG_FILE =  "incident_log.json"
+
 
 
 SCREEN_WIDTH = 1920
@@ -212,6 +216,20 @@ def get_status_priority(incident):
     
     return 4
 
+#============================================================
+# RSS FEED SCRAPER
+#===============================================================
+def fetch_rss_feed(url):
+    try:
+        feed = feedparser.parse(url)
+        return feed.entries[:5]
+    
+    except Exception:
+        return []
+
+
+
+
 
 # =========================================================
 # MAIN APPLICATION
@@ -240,6 +258,8 @@ def main():
     incident_rows = []
     last_refresh_time = 0
     error_message = ""
+    rss_warnings = []
+    rss_bans = []
 
     running = True
 # =========================================================
@@ -264,6 +284,8 @@ def main():
                 incidents.sort(key=get_status_priority)
 
                 save_incident_log(incidents)
+                rss_warnings = fetch_rss_feed(RSS_WARNINGS_URL)
+                rss_bans = fetch_rss_feed(RSS_BANS_URL)
 
                 current_ids = set()
 
@@ -363,6 +385,12 @@ def main():
 
                 y += 52
 
+#=====================================================================================================================
+# INCIDENT STATS PANEL
+#======================================================================================================================
+        
+        
+        
         pygame.draw.rect(screen, (15, 22, 35), (1250, 170, 620, 800), border_radius=10)
         pygame.draw.rect(screen, (80, 80, 100), (1250, 170, 620, 800), 2, border_radius=10)
 
@@ -385,6 +413,33 @@ def main():
         draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 620, 880)
 
         draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 860, 880)
+
+#===========================================================================================================
+# RSS WARNING PANEL 
+#=============================================================================================================
+
+        pygame.draw.rect(screen, (15, 22, 35), (30, 930, 980, 120), border_radius=10)
+        pygame.draw.rect(screen, (80, 80, 100), (30, 930, 980, 120), 2, border_radius=10)
+        
+        draw_text(screen, "CURRENT wARNINGS", header_font, (255, 180, 80), 55, 950)
+
+
+        warning_y = 990
+
+        for item in rss_warnings[:2]:
+            title = item.get("title", "Unknown Warning")
+
+            draw_text(
+                screen,
+                f"- {title[:70]}",
+                normal_font,
+                (255, 220, 180),
+                55,
+                warning_y
+            )
+
+            warning_y += 30
+
 
 
 # =========================================================
