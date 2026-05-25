@@ -411,7 +411,7 @@ def main():
         draw_text(screen, f"Current {filter_mode} incidents: {len(incidents)}", header_font, (255, 255, 255), 30, 115)
 
         mode_text = "TEST MODE" if TEST_MODE else "LIVE MODE"
-        draw_text(screen, f"Mode: {mode_text} | 1-6 = Region Filters | S = Statewide | T = Toggle Test/Live", normal_font, (160, 160, 160), 30, 145)
+        draw_text(screen, f"Mode: {mode_text} | 1-6 = Region Filters | S = Statewide", normal_font, (160, 160, 160), 30, 145)
 
         pygame.draw.line(screen, (80, 80, 100), (30, 175), (1570, 175), 3)
 
