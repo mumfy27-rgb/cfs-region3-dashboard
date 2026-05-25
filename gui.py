@@ -426,14 +426,36 @@ def main():
 
         warning_y = 990
 
-        for item in rss_warnings[:2]:
-            title = item.get("title", "Unknown Warning")
+        if not rss_warnings:
+            draw_text(
+                screen,
+                "No Current Warnings",
+                normal_font,
+                (120, 255, 120),
+                55,
+                warning_y
+            )
+        else:
+            for item in rss_warnings[:2]:
+                title = item.get("title", "Unknown Warning")
+
+            warning_colour = (220, 220, 220)
+
+            if "EMERGENCY WARNING" in title:
+                warning_colour = (255, 60, 60)
+
+            elif "WATCH AND ACT" in title:
+                warning_colour = (255, 140, 0)
+
+            elif "ADVICE" in title:
+                warning_colour = (255, 220, 80)
+
 
             draw_text(
                 screen,
                 f"- {title[:70]}",
                 normal_font,
-                (255, 220, 180),
+                warning_colour,
                 55,
                 warning_y
             )
@@ -441,7 +463,14 @@ def main():
             warning_y += 30
 
 
+        
 
+
+
+
+
+        
+       
 # =========================================================
 # INCIDENT DETAILS PANEL
 # =========================================================
