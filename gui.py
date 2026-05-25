@@ -12,7 +12,10 @@ import time
 import requests
 import pygame
 from datetime import datetime
-import winsound
+import platform
+
+if platform.system() == "Windows":
+    import winsound
 import json
 import math
 from bs4 import BeautifulSoup
@@ -350,7 +353,12 @@ def main():
                 new_incident_ids = current_ids - seen_incident_ids
 
                 if new_incident_ids and seen_incident_ids:
-                    winsound.Beep(1000, 500)
+                    if platform.system() == "Windows":
+                        winsound.beep(1000,500)
+                    else:
+                        print("ALERT")
+
+
 
                 seen_incident_ids = current_ids
                 last_updated = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
