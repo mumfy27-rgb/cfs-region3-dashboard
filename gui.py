@@ -37,22 +37,28 @@ SCREEN_HEIGHT = 1080
 REFRESH_SECONDS = 60
 
 # =========================================================
-# REGION 3 FILTER KEYWORDS
+# REGION FILTER 
 # =========================================================
-REGION_3_KEYWORDS = [
-    "CALLINGTON", "ETTRICK", "JERVOIS", "MANNUM", "MONARTO",
-    "MURRAY BRIDGE", "MYPOLONGA", "ROCKLEIGH", "TAILEM BEND",
-    "COLEBATCH", "COOKE PLAINS", "COOMANDOOK", "COOMBE",
-    "COONALPYN", "FIELD", "JABUK", "MENINGIE", "NARRUNG",
-    "NETHERTON", "PEAKE", "SALT CREEK", "SHERLOCK", "MOORLANDS",
-    "TINTINARA", "BOWHILL", "GALGA", "GERANIUM", "HALIDON",
-    "KAROONDA", "KULKAMI", "MARAMA", "LAMEROO", "PARILLA",
-    "PINNAROO", "WYNARKA", "BLANCHETOWN", "CADELL", "MORGAN",
-    "WAIKERIE", "CAMBRAI", "KEYNETON", "PALMER", "SEDAN",
-    "SWAN REACH", "WALKER FLAT", "BARMERA", "BROWNS WELL",
-    "GLOSSOP", "LYRUP", "MONASH", "MOOROOK", "PARINGA",
-    "TAPLAN", "WUNKAR",
+
+VALID_REGIONS = [
+    "STATEWIDE",
+    "REGION 1",
+    "REGION 2",
+    "REGION 3",
+    "REGION 4",
+    "REGION 5",
+    "REGION 6",
+
 ]
+
+def incident_matches_region(incident, filter_mode):
+    if filter_mode == "STATEWIDE":
+        return True
+    
+    region = str(incident.get("Region", "")).upper()
+
+    return filter_mode in region
+
 # =========================================================
 # INCIDENT FETCHING
 # =========================================================
@@ -61,22 +67,8 @@ def fetch_incidents():
     response = requests.get(CFS_INCIDENTS_URL, timeout=10)
     response.raise_for_status()
     return response.json()
-# =========================================================
-# INCIDENT FILTERING
-# =========================================================
 
-def is_region_3_incident(incident):
-    location = str(incident.get("Location_name", "")).upper()
-    region = str(incident.get("Region", "")).upper()
 
-    if "REGION 3" in region:
-        return True
-
-    for keyword in REGION_3_KEYWORDS:
-        if keyword in location:
-            return True
-
-    return False
 
 # =========================================================
 # UI COLOURS
@@ -329,14 +321,12 @@ def main():
                 else:
                     all_incidents = fetch_incidents()
 
-                if filter_mode == "REGION 3":
-                    incidents = [
-                        item for item in all_incidents
-                        if is_region_3_incident(item)
-                    ]
-                else:
-                    incidents = all_incidents
-
+                incidents = [
+                    item for item in all_incidents
+                    if incident_matches_region(item, filter_mode)
+                ]
+                
+                
                 incidents.sort(key=get_status_priority)
 
                 save_incident_log(incidents)
@@ -383,8 +373,28 @@ def main():
                         selected_incident = incident
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
+                if event.key == pygame.K_1:
+                    filter_mode = "REGION 1"
+                    last_refresh_time = 0
+                
+                if event.key == pygame.K_2:
+                    filter_mode = "REGION 2"
+                    last_refresh_time = 0
+
+                if event.key == pygame.K_3:
                     filter_mode = "REGION 3"
+                    last_refresh_time = 0
+
+                if event.key == pygame.K_4:
+                    filter_mode = "REGION 4"
+                    last_refresh_time = 0
+
+                if event.key == pygame.K_5:
+                    filter_mode = "REGION 5"
+                    last_refresh_time = 0
+
+                if event.key == pygame.K_6:
+                    filter_mode = "REGION 6"
                     last_refresh_time = 0
 
                 if event.key == pygame.K_s:
@@ -408,7 +418,15 @@ def main():
         draw_text(screen, f"PUBLIC CFS {filter_mode} INCIDENT DASHBOARD", title_font, (255, 80, 80), 30, 25)
         draw_text(screen, f"Last updated: {last_updated}", normal_font, (220, 220, 220), 30, 75)
         draw_text(screen, f"Current {filter_mode} incidents: {len(incidents)}", header_font, (255, 255, 255), 30, 115)
-        draw_text(screen, "Press R = Region 3 | Press S = Statewide", normal_font, (160, 160, 160), 30, 145)
+        draw_text(
+            screen,
+            "1-6 = Region Filters | S = Statewide",
+            normal_font,
+            (160, 160, 160),
+            30,
+            145
+
+        )
 
         pygame.draw.line(screen, (80, 80, 100), (30, 175), (1570, 175), 3)
 
