@@ -260,6 +260,7 @@ def main():
     error_message = ""
     rss_warnings = []
     rss_bans = []
+    TEST_MODE = True
 
     running = True
 # =========================================================
@@ -271,7 +272,59 @@ def main():
 
         if now - last_refresh_time >= REFRESH_SECONDS or last_refresh_time == 0:
             try:
-                all_incidents = fetch_incidents()
+                if TEST_MODE:
+                    all_incidents = [
+                        {
+                    
+                            "IncidentNo": "TEST001",
+                            "Type": "Grass Fire",
+                            "Status": "GOING",
+                            "Location_name": "MURRAY BRIDGE",
+                            "Region": "Region 3",
+                            "Resources": "20 ",
+                            "Aircraft": "10",
+                            "Date": "25/05/2026",
+                            "Time": "15:30",
+                        },
+                        {
+                            "IncidentNo": "TEST002",
+                            "Type": "HAZMAT",
+                            "Status": "GOING",
+                            "Location_name": "TAILEM BEND",
+                            "Region": "Region 3",
+                            "Resources": "4",
+                            "Aircraft": "0",
+                            "Date": "25/05/2026",
+                            "Time": "15:30",
+                        },
+                        {
+                            "IncidentNo": "TEST003",
+                            "Type": "Investigate Smoke",
+                            "Status": "MONITOR",
+                            "Location_name": "MONARTO",
+                            "Region": "Region 3",
+                            "Resources": "1",
+                            "Aircraft": "None",
+                            "Date": "25/05/2026",
+                            "Time": "17:00",
+                        },                                
+                    ]
+
+                    rss_warnings = [
+                        {"title": "EMERGENCY WARNING - MURRAY BRIDGE GRASS FIRE"}, 
+                        {"title": "WATCH AND ACT - HAZMAT INCIDENT MONARTO"},
+                    ]
+
+
+                    rss_bans = [
+                        {"title": "Murraylands - CATASTROPHIC"},
+                        {"title": "Mt Lofty Ranges - CATASTROPHIC"},
+                        {"title": "Riverland - EXTREME"}
+
+                    ]
+
+                else:
+                    all_incidents = fetch_incidents()
 
                 if filter_mode == "REGION 3":
                     incidents = [
@@ -284,9 +337,11 @@ def main():
                 incidents.sort(key=get_status_priority)
 
                 save_incident_log(incidents)
-                rss_warnings = fetch_rss_feed(RSS_WARNINGS_URL)
-                rss_bans = fetch_rss_feed(RSS_BANS_URL)
 
+                if not TEST_MODE:
+                    rss_warnings = fetch_rss_feed(RSS_WARNINGS_URL)
+                    rss_bans = fetch_rss_feed(RSS_BANS_URL)
+              
                 current_ids = set()
 
                 for item in incidents:
@@ -327,6 +382,16 @@ def main():
                 if event.key == pygame.K_s:
                     filter_mode = "STATEWIDE"
                     last_refresh_time = 0
+
+                if event.key == pygame.K_t:
+                    TEST_MODE = not TEST_MODE
+                    last_refresh_time = 0
+                    print("TEST MODE ENABLED")
+                else:
+                    print("LIVE MODE ENABLED")
+
+
+
 # =========================================================
 # DASHBOARD DRAWING
 # =========================================================
@@ -386,88 +451,75 @@ def main():
                 y += 52
 
 #=====================================================================================================================
-# INCIDENT STATS PANEL
+# FIRE DANGER RATINGS PANEL
 #======================================================================================================================
-        
-        
-        
-        pygame.draw.rect(screen, (15, 22, 35), (1250, 170, 620, 800), border_radius=10)
-        pygame.draw.rect(screen, (80, 80, 100), (1250, 170, 620, 800), 2, border_radius=10)
-
-        draw_text(screen, "INCIDENT DETAILS", header_font, (255, 255, 255), 1280, 190)
-
-        stats = calculate_stats(incidents)
-
         pygame.draw.rect(screen, (15, 22, 35), (30, 760, 1180, 160), border_radius=10)
         pygame.draw.rect(screen, (80, 80, 100), (30, 760, 1180, 160), 2, border_radius=10)
 
-        draw_text(screen, f"FIRES: {stats['fire']}", normal_font, (253, 80, 80), 55, 835)
-        draw_text(screen, f"MVA: {stats['mva']}", normal_font, (255, 220, 80), 240, 835)
-        draw_text(screen, f"RESCUE: {stats['rescue']}", normal_font, (80, 200, 255), 420, 835)
-        draw_text(screen, f"HAZMAT: {stats['hazmat']}", normal_font, (255, 0, 255), 650, 835)
+        draw_text(screen, "FIRE DANGER RATINGS", header_font, (255, 255, 255), 55, 785)
 
-        draw_text(screen, f"BURNS: {stats['burn']}", normal_font, (255, 140, 0), 55, 880)
+        rating_y = 835
 
-        draw_text(screen, f"SMOKE: {stats['smoke']}", normal_font, (180, 180, 180), 320, 880)
+        if not rss_bans:
+            draw_text(screen, " No Fire danger ratings issued", header_font, (180, 180, 180), 55, rating_y)
+        else:
+            for item in rss_bans[:3]:
+                title = item.get("title", "Unknown rating")
+                draw_text(screen, f"- {title[:85]}", normal_font, (255, 220, 120), 55, rating_y)
+                rating_y += 35
 
-        draw_text(screen, f"TREE: {stats['tree']}", normal_font, (80, 255, 120), 620, 880)
-
-        draw_text(screen, f"OTHER: {stats['other']}", normal_font, (220, 220, 220), 860, 880)
+        
+        
+       
 
 #===========================================================================================================
 # RSS WARNING PANEL 
 #=============================================================================================================
 
-        pygame.draw.rect(screen, (15, 22, 35), (30, 930, 980, 120), border_radius=10)
-        pygame.draw.rect(screen, (80, 80, 100), (30, 930, 980, 120), 2, border_radius=10)
-        
-        draw_text(screen, "CURRENT wARNINGS", header_font, (255, 180, 80), 55, 950)
+        pygame.draw.rect(screen, (15, 22, 35), (30, 930, 980, 160), border_radius=10)
+        pygame.draw.rect(screen, (80, 80, 100), (30, 930, 980, 160), 2, border_radius=10)
 
+        draw_text(screen, "CURRENT WARNINGS", header_font, (255, 180, 80), 55, 950)
 
         warning_y = 990
 
         if not rss_warnings:
-            draw_text(
-                screen,
-                "No Current Warnings",
-                normal_font,
-                (120, 255, 120),
-                55,
-                warning_y
-            )
+            draw_text(screen, "No Current Warnings", normal_font, (120, 255, 120), 55, warning_y)
         else:
             for item in rss_warnings[:2]:
-                title = item.get("title", "Unknown Warning")
+                title = item.get("title", "Unknown Warning").upper()
 
-            warning_colour = (220, 220, 220)
+                warning_colour = (220, 220, 220)
 
-            if "EMERGENCY WARNING" in title:
-                warning_colour = (255, 60, 60)
+                if "EMERGENCY WARNING" in title:
+                    warning_colour = (255, 60, 60)
+                elif "WATCH AND ACT" in title:
+                    warning_colour = (255, 140, 0)
+                elif "ADVICE" in title:
+                    warning_colour = (255, 220, 80)
 
-            elif "WATCH AND ACT" in title:
-                warning_colour = (255, 140, 0)
+                draw_text(screen, f"- {title[:70]}", normal_font, warning_colour, 55, warning_y)
+                warning_y += 30
 
-            elif "ADVICE" in title:
-                warning_colour = (255, 220, 80)
+# =========================================================
+# INCIDENT DETAILS PANEL
+# =========================================================
 
+        if selected_incident is not None:
+            detail_type = selected_incident.get("Type")
+            detail_colour = get_incident_colour(detail_type)
 
-            draw_text(
-                screen,
-                f"- {title[:70]}",
-                normal_font,
-                warning_colour,
-                55,
-                warning_y
-            )
-
-            warning_y += 30
-
-
-        
-
-
-
-
+            draw_text(screen, f"Incident: {selected_incident.get('IncidentNo')}", normal_font, detail_colour, 1250, 240)
+            draw_text(screen, f"Type: {detail_type}", normal_font, detail_colour, 1250, 275)
+            draw_text(screen, f"Status: {selected_incident.get('Status')}", normal_font, (220, 220, 220), 1250, 310)
+            draw_text(screen, f"Region: {selected_incident.get('Region')}", normal_font, (220, 220, 220), 1250, 345)
+            draw_text(screen, f"Location: {selected_incident.get('Location_name')}", normal_font, (220, 220, 220), 1250, 380)
+            draw_text(screen, f"Resources: {selected_incident.get('Resources')}", normal_font, (220, 220, 220), 1250, 415)
+            draw_text(screen, f"Aircraft: {selected_incident.get('Aircraft')}", normal_font, (220, 220, 220), 1250, 450)
+            draw_text(screen, f"Date: {selected_incident.get('Date')}", normal_font, (220, 220, 220), 1250, 485)
+            draw_text(screen, f"Time: {selected_incident.get('Time')}", normal_font, (220, 220, 220), 1250, 520)
+        else:
+            draw_text(screen, "Click an incident on the left.", normal_font, (180, 180, 180), 1250, 240)
 
         
        
