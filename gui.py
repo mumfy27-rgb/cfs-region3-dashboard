@@ -3,23 +3,20 @@
 # REGION 3 / STATEWIDE OPERATIONS DASHBOARD
 # =========================================================
 
-
-
-# =========================================================
-# IMPORTS
-# =========================================================
 import time
 import requests
 import pygame
 from datetime import datetime
 import platform
-
-if platform.system() == "Windows":
-    import winsound
 import json
 import math
 from bs4 import BeautifulSoup
 import feedparser
+import cloudscraper
+
+if platform.system() == "Windows":
+    import winsound
+
 
 # =========================================================
 # CONFIGURATION
@@ -28,18 +25,16 @@ CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_in
 PAGER_URL = "http://www.urgmsg.net/livenosaas/"
 RSS_WARNINGS_URL = "https://www.cfs.sa.gov.au/site/rss/warning_rss.jsp"
 RSS_BANS_URL = "https://www.cfs.sa.gov.au/site/rss/bans_rss.jsp"
-INCIDENT_LOG_FILE =  "incident_log.json"
-
-
+INCIDENT_LOG_FILE = "incident_log.json"
 
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
 REFRESH_SECONDS = 60
 
-# =========================================================
-# REGION FILTER 
-# =========================================================
 
+# =========================================================
+# REGION FILTER
+# =========================================================
 VALID_REGIONS = [
     "STATEWIDE",
     "REGION 1",
@@ -48,26 +43,24 @@ VALID_REGIONS = [
     "REGION 4",
     "REGION 5",
     "REGION 6",
-
 ]
+
 
 def incident_matches_region(incident, filter_mode):
     if filter_mode == "STATEWIDE":
         return True
-    
-    region = str(incident.get("Region", "")).upper()
 
+    region = str(incident.get("Region", "")).upper()
     return filter_mode in region
+
 
 # =========================================================
 # INCIDENT FETCHING
 # =========================================================
-
 def fetch_incidents():
     response = requests.get(CFS_INCIDENTS_URL, timeout=10)
     response.raise_for_status()
     return response.json()
-
 
 
 # =========================================================
@@ -78,33 +71,30 @@ def get_incident_colour(incident_type):
 
     if "FIRE" in incident_type:
         return (253, 80, 80)
-
     if "MVA" in incident_type or "ROADCRASHRESCUE" in incident_type:
         return (255, 220, 80)
-
     if "RESCUE" in incident_type:
         return (80, 200, 255)
-    
     if "SMOKE" in incident_type:
         return (180, 180, 180)
-    
     if "HAZMAT" in incident_type:
         return (255, 0, 255)
-    
     if "PRESCRIBED" in incident_type:
         return (255, 140, 0)
-    
     if "TREE" in incident_type:
         return (80, 255, 120)
 
     return (220, 220, 220)
+
+
 # =========================================================
 # DRAWING HELPERS
 # =========================================================
-
 def draw_text(screen, text, font, colour, x, y):
     image = font.render(str(text), True, colour)
     screen.blit(image, (x, y))
+
+
 # =========================================================
 # INCIDENT LOGGING
 # =========================================================
@@ -114,14 +104,15 @@ def save_incident_log(incidents):
         "incident_count": len(incidents),
         "incidents": incidents,
     }
+
     try:
         with open(INCIDENT_LOG_FILE, "a") as file:
             file.write(json.dumps(log_entry))
             file.write("\n")
-
-
     except Exception as error:
         print(f"Could not save incident log: {error}")
+
+
 # =========================================================
 # INCIDENT STATISTICS
 # =========================================================
@@ -133,7 +124,7 @@ def calculate_stats(incidents):
         "hazmat": 0,
         "burn": 0,
         "smoke": 0,
-        "tree": 0, 
+        "tree": 0,
         "other": 0,
     }
 
@@ -142,63 +133,71 @@ def calculate_stats(incidents):
 
         if "FIRE" in incident_type:
             stats["fire"] += 1
-
         elif "MVA" in incident_type or "VEHICLE ACCIDENT" in incident_type:
             stats["mva"] += 1
-
         elif "RESCUE" in incident_type:
             stats["rescue"] += 1
-        
-        elif "HAZMAt" in incident_type:
+        elif "HAZMAT" in incident_type:
             stats["hazmat"] += 1
-
         elif "SMOKE" in incident_type:
             stats["smoke"] += 1
-
-        elif (
-            "PRESCRIBED" in incident_type
-            or "BURN" in incident_type
-            or "BURN OFF" in incident_type
-        ):
+        elif "PRESCRIBED" in incident_type or "BURN" in incident_type or "BURN OFF" in incident_type:
             stats["burn"] += 1
-        
         elif "TREE" in incident_type:
             stats["tree"] += 1
-
         else:
             stats["other"] += 1
 
     return stats
-# =================================================================================
-# PAGER FEED SCRAPER
-# ================================================================================
 
-def fetch_pager_message(incident_no):
-    if not incident_no:
-        return "No Incident number available"
-    
+
+# =========================================================
+# PAGER FEED SCRAPER
+# =========================================================
+scraper = cloudscraper.create_scraper(
+    browser={
+        "browser": "chrome",
+        "platform": "windows",
+        "mobile": False,
+    }
+)
+
+last_pager_message = "No pager message loaded yet."
+
+
+def fetch_pager_message():
+    global last_pager_message
+
     try:
-        response = requests.get(PAGER_URL, timeout=5)
+        response = scraper.get(
+            PAGER_URL,
+            timeout=20,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+        )
+
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
-        page_text = soup.get_text("\n")
+        text = soup.get_text("\n", strip=True)
 
-        for line in page_text.splitlines():
-            clean_line = line.strip()
+        if text:
+            last_pager_message = text
 
-            if incident_no in clean_line:
-                return clean_line
-            
+        return last_pager_message
 
-    except Exception:
-        return "Pager Message Unavailable."
-    
-#====================================================================================
+    except Exception as error:
+        print(f"Pager scrape failed: {error}")
+        return last_pager_message
+
+
+# =========================================================
 # GOING JOBS TO TOP
-#=======================================================================================
+# =========================================================
 def get_status_priority(incident):
-    status = str(incident.get("Status","")).upper()
+    status = str(incident.get("Status", "")).upper()
 
     if "GOING" in status:
         return 0
@@ -208,29 +207,27 @@ def get_status_priority(incident):
         return 2
     if "CONTROLLED" in status:
         return 3
-    
+
     return 4
 
-#============================================================
+
+# =========================================================
 # RSS FEED SCRAPER
-#===============================================================
+# =========================================================
 def fetch_rss_feed(url):
     try:
         feed = feedparser.parse(url)
         return feed.entries[:5]
-    
     except Exception:
         return []
-
-
-
 
 
 # =========================================================
 # MAIN APPLICATION
 # =========================================================
-
 def main():
+    global last_pager_message
+
     pygame.init()
 
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
@@ -258,9 +255,10 @@ def main():
     TEST_MODE = True
 
     running = True
-# =========================================================
-# MAIN LOOP
-# =========================================================
+
+    # =========================================================
+    # MAIN LOOP
+    # =========================================================
     while running:
         now = time.time()
         flash_timer += 0.08
@@ -270,13 +268,12 @@ def main():
                 if TEST_MODE:
                     all_incidents = [
                         {
-                    
                             "IncidentNo": "TEST001",
                             "Type": "Grass Fire",
                             "Status": "GOING",
                             "Location_name": "MURRAY BRIDGE",
                             "Region": "Region 3",
-                            "Resources": "20 ",
+                            "Resources": "20",
                             "Aircraft": "10",
                             "Date": "25/05/2026",
                             "Time": "15:30",
@@ -302,39 +299,33 @@ def main():
                             "Aircraft": "None",
                             "Date": "25/05/2026",
                             "Time": "17:00",
-                        },                                
+                        },
                     ]
 
                     rss_warnings = [
-                        {"title": "EMERGENCY WARNING - MURRAY BRIDGE GRASS FIRE"}, 
+                        {"title": "EMERGENCY WARNING - MURRAY BRIDGE GRASS FIRE"},
                         {"title": "WATCH AND ACT - HAZMAT INCIDENT MONARTO"},
                     ]
-
 
                     rss_bans = [
                         {"title": "Murraylands - CATASTROPHIC"},
                         {"title": "Mt Lofty Ranges - CATASTROPHIC"},
-                        {"title": "Riverland - EXTREME"}
-
+                        {"title": "Riverland - EXTREME"},
                     ]
 
                 else:
                     all_incidents = fetch_incidents()
+                    rss_warnings = fetch_rss_feed(RSS_WARNINGS_URL)
+                    rss_bans = fetch_rss_feed(RSS_BANS_URL)
 
                 incidents = [
                     item for item in all_incidents
                     if incident_matches_region(item, filter_mode)
                 ]
-                
-                
-                incidents.sort(key=get_status_priority)
 
+                incidents.sort(key=get_status_priority)
                 save_incident_log(incidents)
 
-                if not TEST_MODE:
-                    rss_warnings = fetch_rss_feed(RSS_WARNINGS_URL)
-                    rss_bans = fetch_rss_feed(RSS_BANS_URL)
-              
                 current_ids = set()
 
                 for item in incidents:
@@ -344,11 +335,9 @@ def main():
 
                 if new_incident_ids and seen_incident_ids:
                     if platform.system() == "Windows":
-                        winsound.beep(1000,500)
+                        winsound.Beep(1000, 500)
                     else:
                         print("ALERT")
-
-
 
                 seen_incident_ids = current_ids
                 last_updated = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -358,9 +347,10 @@ def main():
                 error_message = str(error)
 
             last_refresh_time = now
-# =========================================================
-# EVENT HANDLING
-# =========================================================
+
+        # =========================================================
+        # EVENT HANDLING
+        # =========================================================
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -371,12 +361,13 @@ def main():
                 for rect, incident in incident_rows:
                     if rect.collidepoint(mouse_pos):
                         selected_incident = incident
+                        last_pager_message = fetch_pager_message()
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_1:
                     filter_mode = "REGION 1"
                     last_refresh_time = 0
-                
+
                 if event.key == pygame.K_2:
                     filter_mode = "REGION 2"
                     last_refresh_time = 0
@@ -404,29 +395,23 @@ def main():
                 if event.key == pygame.K_t:
                     TEST_MODE = not TEST_MODE
                     last_refresh_time = 0
-                    print("TEST MODE ENABLED")
-                else:
-                    print("LIVE MODE ENABLED")
 
+                    if TEST_MODE:
+                        print("TEST MODE ENABLED")
+                    else:
+                        print("LIVE MODE ENABLED")
 
-
-# =========================================================
-# DASHBOARD DRAWING
-# =========================================================
+        # =========================================================
+        # DASHBOARD DRAWING
+        # =========================================================
         screen.fill((10, 15, 25))
 
         draw_text(screen, f"PUBLIC CFS {filter_mode} INCIDENT DASHBOARD", title_font, (255, 80, 80), 30, 25)
         draw_text(screen, f"Last updated: {last_updated}", normal_font, (220, 220, 220), 30, 75)
         draw_text(screen, f"Current {filter_mode} incidents: {len(incidents)}", header_font, (255, 255, 255), 30, 115)
-        draw_text(
-            screen,
-            "1-6 = Region Filters | S = Statewide",
-            normal_font,
-            (160, 160, 160),
-            30,
-            145
 
-        )
+        mode_text = "TEST MODE" if TEST_MODE else "LIVE MODE"
+        draw_text(screen, f"Mode: {mode_text} | 1-6 = Region Filters | S = Statewide | T = Toggle Test/Live", normal_font, (160, 160, 160), 30, 145)
 
         pygame.draw.line(screen, (80, 80, 100), (30, 175), (1570, 175), 3)
 
@@ -437,14 +422,14 @@ def main():
             draw_text(screen, error_message, normal_font, (255, 180, 180), 30, 230)
 
         elif not incidents:
-            draw_text(screen, "No Current incidents found.", header_font, (80, 255, 120), 30, 190)
+            draw_text(screen, "No current incidents found.", header_font, (80, 255, 120), 30, 190)
 
         else:
             y = 205
-# =========================================================
-# INCIDENT LIST
-# =========================================================
-            
+
+            # =========================================================
+            # INCIDENT LIST
+            # =========================================================
             for incident in incidents[:12]:
                 incident_type = incident.get("Type")
                 colour = get_incident_colour(incident_type)
@@ -461,13 +446,7 @@ def main():
                     flash_value = abs(int(255 * math.sin(flash_timer)))
                     flash_colour = (255, flash_value, 0)
 
-                    pygame.draw.rect(
-                        screen,
-                        flash_colour,
-                        (1110, y - 4, 70, 30),
-                        border_radius=6
-                    )
-
+                    pygame.draw.rect(screen, flash_colour, (1110, y - 4, 70, 30), border_radius=6)
                     draw_text(screen, "NEW", normal_font, (0, 0, 0), 1125, y)
 
                 draw_text(screen, incident_type, normal_font, colour, 190, y)
@@ -476,9 +455,9 @@ def main():
 
                 y += 52
 
-#=====================================================================================================================
-# FIRE DANGER RATINGS PANEL
-#======================================================================================================================
+        # =========================================================
+        # FIRE DANGER RATINGS PANEL
+        # =========================================================
         pygame.draw.rect(screen, (15, 22, 35), (30, 760, 1180, 160), border_radius=10)
         pygame.draw.rect(screen, (80, 80, 100), (30, 760, 1180, 160), 2, border_radius=10)
 
@@ -487,21 +466,16 @@ def main():
         rating_y = 835
 
         if not rss_bans:
-            draw_text(screen, " No Fire danger ratings issued", header_font, (180, 180, 180), 55, rating_y)
+            draw_text(screen, "No fire danger ratings issued", normal_font, (180, 180, 180), 55, rating_y)
         else:
             for item in rss_bans[:3]:
                 title = item.get("title", "Unknown rating")
                 draw_text(screen, f"- {title[:85]}", normal_font, (255, 220, 120), 55, rating_y)
                 rating_y += 35
 
-        
-        
-       
-
-#===========================================================================================================
-# RSS WARNING PANEL 
-#=============================================================================================================
-
+        # =========================================================
+        # RSS WARNING PANEL
+        # =========================================================
         pygame.draw.rect(screen, (15, 22, 35), (30, 930, 980, 160), border_radius=10)
         pygame.draw.rect(screen, (80, 80, 100), (30, 930, 980, 160), 2, border_radius=10)
 
@@ -510,7 +484,7 @@ def main():
         warning_y = 990
 
         if not rss_warnings:
-            draw_text(screen, "No Current Warnings", normal_font, (120, 255, 120), 55, warning_y)
+            draw_text(screen, "No current warnings", normal_font, (120, 255, 120), 55, warning_y)
         else:
             for item in rss_warnings[:2]:
                 title = item.get("title", "Unknown Warning").upper()
@@ -527,34 +501,9 @@ def main():
                 draw_text(screen, f"- {title[:70]}", normal_font, warning_colour, 55, warning_y)
                 warning_y += 30
 
-# =========================================================
-# INCIDENT DETAILS PANEL
-# =========================================================
-
-        if selected_incident is not None:
-            detail_type = selected_incident.get("Type")
-            detail_colour = get_incident_colour(detail_type)
-
-            draw_text(screen, f"Incident: {selected_incident.get('IncidentNo')}", normal_font, detail_colour, 1250, 240)
-            draw_text(screen, f"Type: {detail_type}", normal_font, detail_colour, 1250, 275)
-            draw_text(screen, f"Status: {selected_incident.get('Status')}", normal_font, (220, 220, 220), 1250, 310)
-            draw_text(screen, f"Region: {selected_incident.get('Region')}", normal_font, (220, 220, 220), 1250, 345)
-            draw_text(screen, f"Location: {selected_incident.get('Location_name')}", normal_font, (220, 220, 220), 1250, 380)
-            draw_text(screen, f"Resources: {selected_incident.get('Resources')}", normal_font, (220, 220, 220), 1250, 415)
-            draw_text(screen, f"Aircraft: {selected_incident.get('Aircraft')}", normal_font, (220, 220, 220), 1250, 450)
-            draw_text(screen, f"Date: {selected_incident.get('Date')}", normal_font, (220, 220, 220), 1250, 485)
-            draw_text(screen, f"Time: {selected_incident.get('Time')}", normal_font, (220, 220, 220), 1250, 520)
-        else:
-            draw_text(screen, "Click an incident on the left.", normal_font, (180, 180, 180), 1250, 240)
-
-        
-       
-# =========================================================
-# INCIDENT DETAILS PANEL
-# =========================================================
-    
-       
-
+        # =========================================================
+        # INCIDENT DETAILS PANEL
+        # =========================================================
         if selected_incident is not None:
             detail_type = selected_incident.get("Type")
             detail_colour = get_incident_colour(detail_type)
@@ -569,15 +518,17 @@ def main():
             draw_text(screen, f"Date: {selected_incident.get('Date')}", normal_font, (220, 220, 220), 1250, 485)
             draw_text(screen, f"Time: {selected_incident.get('Time')}", normal_font, (220, 220, 220), 1250, 520)
 
-       
+            draw_text(screen, "PAGER MESSAGE:", normal_font, (255, 220, 80), 1250, 570)
+            draw_text(screen, last_pager_message[:45], normal_font, (220, 220, 220), 1250, 610)
+            draw_text(screen, last_pager_message[45:90], normal_font, (220, 220, 220), 1250, 645)
+            draw_text(screen, last_pager_message[90:135], normal_font, (220, 220, 220), 1250, 680)
+            draw_text(screen, last_pager_message[135:180], normal_font, (220, 220, 220), 1250, 715)
+            draw_text(screen, last_pager_message[180:225], normal_font, (220, 220, 220), 1250, 750)
 
         else:
             draw_text(screen, "Click an incident on the left.", normal_font, (180, 180, 180), 1250, 240)
 
         seconds_until_refresh = int(REFRESH_SECONDS - (time.time() - last_refresh_time))
-
-        
-
         draw_text(screen, f"Refresh in: {max(seconds_until_refresh, 0)} seconds", normal_font, (160, 160, 160), 1250, 930)
 
         pygame.display.flip()
@@ -587,4 +538,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
