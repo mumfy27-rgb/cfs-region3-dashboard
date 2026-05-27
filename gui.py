@@ -33,7 +33,9 @@ INCIDENT_LOG_FILE = "incident_log.json"
 
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
+
 REFRESH_SECONDS = 60
+PAGER_REFRESH_SECONDS = 300
 
 
 # =========================================================
@@ -167,11 +169,11 @@ scraper = cloudscraper.create_scraper(
 )
 
 last_pager_message = "No pager message loaded yet."
-
+latest_pager_text = ""
+# =============================================================
+# FETCH PAGER MESSAGES
+# =========================================================== 
 def fetch_pager_message():
-    global last_pager_message
-
-
     try:
         options = webdriver.ChromeOptions()
 
@@ -190,18 +192,154 @@ def fetch_pager_message():
 
         body = driver.find_element(By.TAG_NAME, "body").text
 
-        if body:
-            last_pager_message = body
-
-
         driver.quit()
 
-        return last_pager_message
+        return body
     
 
     except Exception as error:
         print(f"Pager scrape failed: {error}")
         return last_pager_message
+    
+
+# ===================================================================================
+# FIND MATCHING PAGER MEESAGE
+# ====================================================================================
+
+def find_matching_pager_message(pager_text, incident):
+    location = str(incident.get("Location_name", "")).upper()
+    incident_type = str(incident.get("Type", "")).upper()
+    incident_date = str(incident.get("Date", "")).upper()
+
+
+    ignored_words = [
+        "PAGER TEST",
+        "TEST ONLY",
+        "TRAINING",
+        "REMINDER"
+    ]
+
+
+    messages = pager_text.split("\n")
+
+
+    best_message = "No pager message found."
+    best_score = 0
+
+    for message in messages:
+        msg = message.upper()
+        score = 0
+
+        # ingnore junk/test messages
+        if any(word in msg for word in ignored_words):
+            continue
+
+        # ===============================================
+        # LOCATION MATCH
+        # ===============================================
+        if location and location in msg:
+            score += 60
+
+        # ================================================
+        # FIRE INCIDENTS 
+        # ================================================
+        elif "FIRE" in incident_type:
+            fire_keywords = [
+                "FIRE",
+                "GRASSFIRE",
+                "SCRUBFIRE",
+                "BUSHFIRE",
+                "STRUCTURE FIRE"
+            ]
+
+            for keyword in fire_keywords:
+                if keyword in msg:
+                    score += 35
+                    break
+
+
+        # ==========================================================
+        # VEHICLE ACCIDENTS / MVA
+        # ===========================================================
+        elif (
+            "MVA" in incident_type
+            or "VEHICLE ACCIDENT" in incident_type
+            or "ROADCRASHRESCUE" in incident_type
+
+        ):
+            mva_keywords = [
+                "MVA",
+                "VEHICLE ACCIDENT",
+                "ROAD CRASH",
+                "CAR ACCIDENT",
+            ] 
+
+            for keyword in mva_keywords:
+                if keyword in msg:
+                    score += 40
+                    break
+
+        # ===========================================================================
+        # HAZMAT
+        # ============================================================================
+        elif "HAZMAT" in incident_type:
+            if "HAZMAT" in msg:
+                score += 35
+
+        # ============================================================================
+        # RESCUE
+        # ===============================================================================
+        elif "RESCUE" in incident_type:
+            rescue_keywords = [
+                "RESCUE",
+                "RCR",
+                "ROAD CRASH RESCUE"
+            ]
+
+            for keyword in rescue_keywords:
+                if keyword in msg:
+                    score += 35
+                    break
+
+        # ================================================================================
+        # SMOKE
+        # ================================================================================
+        elif "SMOKE" in incident_type:
+            smoke_keywords = [
+                "SMOKE",
+                "INVESTIGATE SMOKE",
+            ]
+
+            for keyword in smoke_keywords:
+                if keyword in msg:
+                    score += 25
+                    break
+
+        # ===================================================================================
+        # TREE
+        # ====================================================================================
+        elif "TREE" in incident_type:
+            if "TREE" in msg:
+                score += 25
+
+        # =====================================================================================
+        # DATE MATCH 
+        # =====================================================================================
+        if incident_date:
+            short_date = incident_date.replace("/2026", "/26")
+
+            if short_date in msg:
+                score += 25
+
+
+        # =======================================================================================
+        #  BEST MATCH
+        # =======================================================================================
+        if score > best_score:
+            best_score = score
+            best_message = message
+
+    return best_message
 
 
 
@@ -238,7 +376,7 @@ def fetch_rss_feed(url):
 # MAIN APPLICATION
 # =========================================================
 def main():
-    global last_pager_message
+    global last_pager_message, latest_pager_text
 
     pygame.init()
 
@@ -260,7 +398,10 @@ def main():
     selected_incident = None
     filter_mode = "STATEWIDE"
     incident_rows = []
+
     last_refresh_time = 0
+    last_pager_refresh_time = 0
+    
     error_message = ""
     rss_warnings = []
     rss_bans = []
@@ -330,6 +471,14 @@ def main():
                     rss_warnings = fetch_rss_feed(RSS_WARNINGS_URL)
                     rss_bans = fetch_rss_feed(RSS_BANS_URL)
 
+
+                    if (
+                        now - last_pager_refresh_time >= PAGER_REFRESH_SECONDS
+                        or last_pager_refresh_time == 0
+                    ):
+                        latest_pager_text = fetch_pager_message()
+                        last_pager_refresh_time = now
+
                 incidents = [
                     item for item in all_incidents
                     if incident_matches_region(item, filter_mode)
@@ -373,8 +522,12 @@ def main():
                 for rect, incident in incident_rows:
                     if rect.collidepoint(mouse_pos):
                         selected_incident = incident
-                        last_pager_message = fetch_pager_message()
 
+                        last_pager_message = find_matching_pager_message(
+                            latest_pager_text,
+                            selected_incident
+                        )
+                       
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_1:
                     filter_mode = "REGION 1"
