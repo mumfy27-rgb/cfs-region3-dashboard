@@ -205,12 +205,9 @@ def fetch_pager_message():
 # ===================================================================================
 # FIND MATCHING PAGER MEESAGE
 # ====================================================================================
-
 def find_matching_pager_message(pager_text, incident):
     location = str(incident.get("Location_name", "")).upper()
     incident_type = str(incident.get("Type", "")).upper()
-    incident_date = str(incident.get("Date", "")).upper()
-
 
     ignored_words = [
         "PAGER TEST",
@@ -219,136 +216,69 @@ def find_matching_pager_message(pager_text, incident):
         "REMINDER"
     ]
 
-
     messages = pager_text.split("\n")
 
-
-    best_message = "No pager message found."
+    best_message = "No matching pager message found."
     best_score = 0
+
+    # BREAK LOCATION INTO WORDS
+    location_words = (
+        location
+        .replace(",", " ")
+        .replace("/", " ")
+        .split()
+    )
 
     for message in messages:
         msg = message.upper()
         score = 0
 
-        # ingnore junk/test messages
+        # IGNORE TEST/JUNK
         if any(word in msg for word in ignored_words):
             continue
 
-        # ===============================================
-        # LOCATION MATCH
-        # ===============================================
-        if location and location in msg:
-            score += 60
+        # =========================================
+        # LOCATION WORD MATCHING
+        # =========================================
+        for word in location_words:
 
-        # =============================================================
-        # RESPONSE GROUP / BRIGADE MATCH
-        # ===============================================================
-            location_words = location.replace(",", " ").split()
+            # IGNORE SMALL WORDS
+            if len(word) <= 3:
+                continue
 
-            for word in location_words:
-                if len(word) > 3 and word in msg:
-                    score += 20 
-        # ================================================
-        # FIRE INCIDENTS 
-        # ================================================
-        elif "FIRE" in incident_type:
-            fire_keywords = [
-                "FIRE",
-                "GRASSFIRE",
-                "SCRUBFIRE",
-                "BUSHFIRE",
-                "STRUCTURE FIRE"
-            ]
+            if word in msg:
+                score += 40
 
-            for keyword in fire_keywords:
-                if keyword in msg:
-                    score += 35
-                    break
+        # =========================================
+        # INCIDENT TYPE MATCHING
+        # =========================================
+        if "FIRE" in incident_type and "FIRE" in msg:
+            score += 10
 
+        if "HAZMAT" in incident_type and "HAZMAT" in msg:
+            score += 15
 
-        # ==========================================================
-        # VEHICLE ACCIDENTS / MVA
-        # ===========================================================
-        elif (
-            "MVA" in incident_type
-            or "VEHICLE ACCIDENT" in incident_type
-            or "ROADCRASHRESCUE" in incident_type
+        if "SMOKE" in incident_type and "SMOKE" in msg:
+            score += 15
 
-        ):
-            mva_keywords = [
-                "MVA",
-                "VEHICLE ACCIDENT",
-                "ROAD CRASH",
-                "CAR ACCIDENT",
-            ] 
+        if "RESCUE" in incident_type and "RESCUE" in msg:
+            score += 15
 
-            for keyword in mva_keywords:
-                if keyword in msg:
-                    score += 40
-                    break
+        if "ASSIST" in incident_type and "ASSIST" in msg:
+            score += 15
 
-        # ===========================================================================
-        # HAZMAT
-        # ============================================================================
-        elif "HAZMAT" in incident_type:
-            if "HAZMAT" in msg:
-                score += 35
-
-        # ============================================================================
-        # RESCUE
-        # ===============================================================================
-        elif "RESCUE" in incident_type:
-            rescue_keywords = [
-                "RESCUE",
-                "RCR",
-                "ROAD CRASH RESCUE"
-            ]
-
-            for keyword in rescue_keywords:
-                if keyword in msg:
-                    score += 35
-                    break
-
-        # ================================================================================
-        # SMOKE
-        # ================================================================================
-        elif "SMOKE" in incident_type:
-            smoke_keywords = [
-                "SMOKE",
-                "INVESTIGATE SMOKE",
-            ]
-
-            for keyword in smoke_keywords:
-                if keyword in msg:
-                    score += 25
-                    break
-
-        # ===================================================================================
-        # TREE
-        # ====================================================================================
-        elif "TREE" in incident_type:
-            if "TREE" in msg:
-                score += 25
-
-        # =====================================================================================
-        # DATE MATCH 
-        # =====================================================================================
-        if incident_date:
-            short_date = incident_date.replace("/2026", "/26")
-
-            if short_date in msg:
-                score += 25
-
-
-        # =======================================================================================
-        #  BEST MATCH
-        # =======================================================================================
+        # =========================================
+        # BEST MATCH
+        # =========================================
         if score > best_score:
             best_score = score
             best_message = message
 
-    return best_message
+    # REQUIRE A DECENT SCORE
+    if best_score >= 40:
+        return best_message
 
+    return "No matching pager message found."
 
 
 # =========================================================
