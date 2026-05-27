@@ -246,13 +246,13 @@ def main():
     incidents = []
     last_updated = "Never"
     selected_incident = None
-    filter_mode = "REGION 3"
+    filter_mode = "STATEWIDE"
     incident_rows = []
     last_refresh_time = 0
     error_message = ""
     rss_warnings = []
     rss_bans = []
-    TEST_MODE = True
+    TEST_MODE = False
 
     running = True
 
