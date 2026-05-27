@@ -240,6 +240,14 @@ def find_matching_pager_message(pager_text, incident):
         if location and location in msg:
             score += 60
 
+        # =============================================================
+        # RESPONSE GROUP / BRIGADE MATCH
+        # ===============================================================
+            location_words = location.replace(",", " ").split()
+
+            for word in location_words:
+                if len(word) > 3 and word in msg:
+                    score += 20 
         # ================================================
         # FIRE INCIDENTS 
         # ================================================
@@ -466,10 +474,19 @@ def main():
                         {"title": "Riverland - EXTREME"},
                     ]
 
+                    latest_pager_text = """
+                    MFS: *CFSRES INC0099 27/05/26 16:45 RESPOND VEHICLE ACCIDENT, ALARM LEVEL: 1, : NEAR 19068 STURT HWY MONASH,MAP:RLMM 244 6411,TG 203, ==MVA CLEAN UP REQ :BRI29 MNSH34P
+                    MFS: *CFSRES INC0100 25/05/26 15:30 RESPOND GRASSFIRE, ALARM LEVEL: 3, : 584 MAURICE RD ROCKY GULLY LARGE SMOKE PLUME, TG 201, ==GRASS FIRE :MB34P MBQRV  
+                    MFS: *CFSRES INC0101 25/05/26 15:30 RESPOND HAZMAT, ALARM LEVEL: 1, : NEAR TAILEM BEND, TG 202, ==LEAKING GAS BULLET :TLMB34P
+                    MFS: *CFSRES INC0102 25/05/26 17:00 INVESTIGATE SMOKE, : NEAR MONARTO, TG 204, ==LARGE SMOKE PLUME SIGHTED :MNTO34P
+                    """
+
                 else:
                     all_incidents = fetch_incidents()
                     rss_warnings = fetch_rss_feed(RSS_WARNINGS_URL)
                     rss_bans = fetch_rss_feed(RSS_BANS_URL)
+
+
 
 
                     if (
@@ -684,11 +701,35 @@ def main():
             draw_text(screen, f"Time: {selected_incident.get('Time')}", normal_font, (220, 220, 220), 1250, 520)
 
             draw_text(screen, "PAGER MESSAGE:", normal_font, (255, 220, 80), 1250, 570)
-            draw_text(screen, last_pager_message[:45], normal_font, (220, 220, 220), 1250, 610)
-            draw_text(screen, last_pager_message[45:90], normal_font, (220, 220, 220), 1250, 645)
-            draw_text(screen, last_pager_message[90:135], normal_font, (220, 220, 220), 1250, 680)
-            draw_text(screen, last_pager_message[135:180], normal_font, (220, 220, 220), 1250, 715)
-            draw_text(screen, last_pager_message[180:225], normal_font, (220, 220, 220), 1250, 750)
+
+            
+
+            clean_pager_message = " ".join(last_pager_message.split())
+            words = clean_pager_message.split(" ")
+
+
+            lines = []
+            current_line = ""
+
+            for word in words:
+                test_line = current_line + word + " "
+
+
+                if normal_font.size(test_line)[0] < 430:
+                    current_line = test_line
+                else:
+                    lines.append(current_line)
+                    current_line = word + " "
+
+
+                
+            lines.append(current_line)
+
+            y_pos = 610
+
+            for line in lines[:6]:
+                draw_text(screen, line, normal_font, (220, 220, 220), 1250, y_pos)
+                y_pos += 35
 
         else:
             draw_text(screen, "Click an incident on the left.", normal_font, (180, 180, 180), 1250, 240)
