@@ -51,13 +51,22 @@ VALID_REGIONS = [
     "REGION 6",
 ]
 
-
 def incident_matches_region(incident, filter_mode):
     if filter_mode == "STATEWIDE":
         return True
 
-    region = str(incident.get("Region", "")).upper()
-    return filter_mode in region
+    region = str(incident.get("Region", "")).upper().strip()
+
+    # REGION 3 -> 3
+    wanted_number = filter_mode.replace("REGION", "").strip()
+
+    return (
+        region == filter_mode
+        or region == wanted_number
+        or f"REGION {wanted_number}" in region
+        or f"REGION{wanted_number}" in region
+    )
+
 
 
 # =========================================================
@@ -309,6 +318,37 @@ def fetch_rss_feed(url):
     except Exception:
         return []
 
+ #========================================================================================
+    # LOADING SCREEN
+    #========================================================================================
+def draw_loading_screen(screen, title_font, normal_font, progress, status_text):
+    screen.fill((5, 8, 12))
+
+    title = title_font.render("CFS INCIDENT DASHBOARD", True, (240, 240, 240))
+    screen.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 360)))
+
+    loading = normal_font.render("LOADING..........", True, (180, 180, 180))
+    screen.blit(loading, loading.get_rect(center=(SCREEN_WIDTH // 2, 460)))
+
+    bar_width = 700
+    bar_height = 35
+    bar_x = (SCREEN_WIDTH - bar_width) // 2
+    bar_y = 520
+
+    pygame.draw.rect(screen, (80, 80, 80), (bar_x, bar_y, bar_width, bar_height), border_radius=12)
+
+    fill_width = int(bar_width * progress)
+    pygame.draw.rect(screen, (200, 30, 30), (bar_x, bar_y, fill_width, bar_height), border_radius=12)
+        
+    pygame.draw.rect(screen, (220, 220, 220), (bar_x, bar_y, bar_width, bar_height), 3, border_radius=12)
+
+    percent = normal_font.render(f"{int(progress * 100)}%", True, (220, 220, 220))
+    screen.blit(percent, percent.get_rect(center=(SCREEN_WIDTH // 2, 585)))
+
+    status = normal_font.render(status_text, True, (170, 170, 170))
+    screen.blit(status, status.get_rect(center=(SCREEN_WIDTH // 2, 640)))
+
+    pygame.display.flip()
 
 # =========================================================
 # MAIN APPLICATION
@@ -346,6 +386,40 @@ def main():
     TEST_MODE = False
 
     running = True
+
+    draw_loading_screen(screen, title_font, normal_font, 0.10, "Starting dashboard...")
+    pygame.event.pump()
+
+    draw_loading_screen(screen, title_font, normal_font, 0.30, "Fetching incidents...")
+    pygame.event.pump()
+    all_incidents = fetch_incidents()
+    incidents = [
+        item for item in all_incidents
+        if incident_matches_region(item, filter_mode)
+    ]
+    incidents.sort(key=get_status_priority)
+
+    draw_loading_screen(screen, title_font, normal_font, 0.55, "Fetching warnings...")
+    pygame.event.pump()
+    rss_warnings = fetch_rss_feed(RSS_WARNINGS_URL)
+
+    draw_loading_screen(screen, title_font, normal_font, 0.75, "Fetching fire danger ratings...")
+    pygame.event.pump()
+    rss_bans = fetch_rss_feed(RSS_BANS_URL)
+
+    draw_loading_screen(screen, title_font, normal_font, 0.90, "Fetching pager messages...")
+    pygame.event.pump()
+    last_pager_message = fetch_pager_message()
+    latest_pager_text = last_pager_message
+
+    draw_loading_screen(screen, title_font, normal_font, 1.00, "Dashboard ready...")
+    pygame.event.pump()
+
+    pygame.time.delay(100)
+
+    last_updated = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    last_refresh_time = time.time()
+    last_pager_refresh_time = time.time()
 
     # =========================================================
     # MAIN LOOP
@@ -476,37 +550,53 @@ def main():
                         )
                        
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_1:
-                    filter_mode = "REGION 1"
-                    last_refresh_time = 0
+                    if event.key == pygame.K_1:
+                        filter_mode = "REGION 1"
+                        selected_incident = None
+                        last_refresh_time = 0
+                        print(f"Filter changed to: {filter_mode}")
 
-                if event.key == pygame.K_2:
-                    filter_mode = "REGION 2"
-                    last_refresh_time = 0
+                    if event.key == pygame.K_2:
+                        filter_mode = "REGION 2"
+                        selected_incident = None
+                        last_refresh_time = 0
+                        print(f"Filter changed to: {filter_mode}")
 
-                if event.key == pygame.K_3:
-                    filter_mode = "REGION 3"
-                    last_refresh_time = 0
+                    if event.key == pygame.K_3:
+                        filter_mode = "REGION 3"
+                        selected_incident = None
+                        last_refresh_time = 0
+                        print(f"Filter changed to: {filter_mode}")
 
-                if event.key == pygame.K_4:
-                    filter_mode = "REGION 4"
-                    last_refresh_time = 0
+                    if event.key == pygame.K_4:
+                        filter_mode = "REGION 4"
+                        selected_incident = None
+                        last_refresh_time = 0
+                        print(f"Filter changed to: {filter_mode}")
 
-                if event.key == pygame.K_5:
-                    filter_mode = "REGION 5"
-                    last_refresh_time = 0
+                    if event.key == pygame.K_5:
+                        filter_mode = "REGION 5"
+                        selected_incident = None
+                        last_refresh_time = 0
+                        print(f"Filter changed to: {filter_mode}")
 
-                if event.key == pygame.K_6:
-                    filter_mode = "REGION 6"
-                    last_refresh_time = 0
+                    if event.key == pygame.K_6:
+                        filter_mode = "REGION 6"
+                        selected_incident = None
+                        last_refresh_time = 0
+                        print(f"Filter changed to: {filter_mode}")
 
-                if event.key == pygame.K_s:
-                    filter_mode = "STATEWIDE"
-                    last_refresh_time = 0
+                    if event.key == pygame.K_s:
+                        filter_mode = "STATEWIDE"
+                        selected_incident = None
+                        last_refresh_time = 0
+                        print(f"Filter changed to: {filter_mode}")
 
-                if event.key == pygame.K_t:
-                    TEST_MODE = not TEST_MODE
-                    last_refresh_time = 0
+                    if event.key == pygame.K_t:
+                        TEST_MODE = not TEST_MODE
+                        selected_incident = None
+                        last_refresh_time = 0
+                        print(f"Filter changed to: {filter_mode}")
 
                     if TEST_MODE:
                         print("TEST MODE ENABLED")
@@ -671,6 +761,10 @@ def main():
         clock.tick(60)
 
     pygame.quit()
+
+
+   
+
 
 
 if __name__ == "__main__":
