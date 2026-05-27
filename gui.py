@@ -13,6 +13,10 @@ import math
 from bs4 import BeautifulSoup
 import feedparser
 import cloudscraper
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
 
 if platform.system() == "Windows":
     import winsound
@@ -22,7 +26,7 @@ if platform.system() == "Windows":
 # CONFIGURATION
 # =========================================================
 CFS_INCIDENTS_URL = "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json"
-PAGER_URL = "http://www.urgmsg.net/livenosaas/"
+PAGER_URL = "http://paging1.sacfs.org/cfs.php"
 RSS_WARNINGS_URL = "https://www.cfs.sa.gov.au/site/rss/warning_rss.jsp"
 RSS_BANS_URL = "https://www.cfs.sa.gov.au/site/rss/bans_rss.jsp"
 INCIDENT_LOG_FILE = "incident_log.json"
@@ -164,33 +168,41 @@ scraper = cloudscraper.create_scraper(
 
 last_pager_message = "No pager message loaded yet."
 
-
 def fetch_pager_message():
     global last_pager_message
 
+
     try:
-        response = scraper.get(
-            PAGER_URL,
-            timeout=20,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            },
+        options = webdriver.ChromeOptions()
+
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--log-level=3")
+
+        driver = webdriver.Chrome(
+            service=Service(ChromeDriverManager().install()),
+            options=options 
         )
 
-        response.raise_for_status()
+        driver.get(PAGER_URL)
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        text = soup.get_text("\n", strip=True)
+        time.sleep(5)
 
-        if text:
-            last_pager_message = text
+        body = driver.find_element(By.TAG_NAME, "body").text
+
+        if body:
+            last_pager_message = body
+
+
+        driver.quit()
 
         return last_pager_message
+    
 
     except Exception as error:
         print(f"Pager scrape failed: {error}")
         return last_pager_message
+
 
 
 # =========================================================
