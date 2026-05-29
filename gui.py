@@ -330,6 +330,86 @@ def fetch_rss_feed(url):
     except Exception:
         return []
 
+#===================================================================================
+# INCIDNT AGE
+#===================================================================================
+def get_incident_age_text(incident):
+    try:
+        incident_type = str(incident.get("Type", "")).upper()
+
+        if "PRESCRIBED BURN" in incident_type:
+            return ""
+        
+        if "BURN OFF" in incident_type:
+            return ""
+        
+        
+        
+        
+        date_text = incident.get("Date")
+        time_text = incident.get("Time")
+
+        
+
+        incident_datetime = datetime.strptime(
+        f"{date_text} {time_text}",
+        "%d/%m/%Y %H:%M"
+        )
+
+     
+
+        age_minutes = int(
+            (datetime.now()- incident_datetime).total_seconds() / 60
+        )
+
+        if age_minutes <60:
+            return f"{age_minutes}m"
+        
+        hours = age_minutes // 60
+        minutes = age_minutes % 60
+
+        return f"{hours}h {minutes}m"
+    
+    except Exception:
+        return "--"
+    
+
+
+def get_incident_age_colour(incident):
+    try:
+        incident_type = str(incident.get("Type", "")).upper()
+        if "PRESCRIBED BURN" in incident_type:
+            return (180, 180, 180)
+        
+        if "BURN OFF" in incident_type:
+            return (180, 180, 180)
+
+        
+        date_text = incident.get("Date")
+        time_text = incident.get("Time")
+
+        incident_datetime = datetime.strptime(
+            f"{date_text} {time_text}",
+            "%d/%m/%Y %H:%M"
+
+        )
+
+        age_minutes = int(
+            (datetime.now() - incident_datetime).total_seconds() / 60 
+        )
+
+        if age_minutes < 30:
+            return (80, 255, 80)
+        
+        if age_minutes < 120:
+            return (255, 180, 80)
+        
+        return (255, 80, 80)
+    
+    except Exception:
+        return (180, 180, 180)
+
+
  #========================================================================================
     # LOADING SCREEN
     #========================================================================================
@@ -425,6 +505,7 @@ def main():
     last_pager_message = fetch_pager_message()
     latest_pager_text = last_pager_message
 
+   
     draw_loading_screen(screen, title_font, normal_font, 1.00, "Dashboard ready...")
     pygame.event.pump()
 
@@ -582,8 +663,8 @@ def main():
                         # so don't try to match them to pager messages.
                         incident_type = str(selected_incident.get("Type", "")).upper()
                     
-                        if "PRESCRIBED" in incident_type:
-                            last_pager_message = "No Pager Message available for Prescribed Burn"
+                        if "PRESCRIBED" in incident_type or "BURN OFF" in incident_type:
+                            last_pager_message = "No Pager Message available"
                         
                         else:
                             
@@ -686,6 +767,11 @@ def main():
             button_x += 190
 
         pygame.draw.line(screen, (80, 80, 100), (30, 230), (1570, 230), 3)
+        draw_text(screen, "INCIDENT", normal_font, (180, 180, 180), 55, 240)
+        draw_text(screen, "TYPE", normal_font, (180, 180, 180), 190, 240)
+        draw_text(screen, "LOCATION", normal_font, (180, 180, 180), 460, 240)
+        draw_text(screen, "STATUS", normal_font, (180, 180, 180), 980, 240)
+        draw_text(screen, "AGE", normal_font, (180, 180, 180), 1150, 240)
 
 
         incident_rows = []
@@ -698,7 +784,7 @@ def main():
             draw_text(screen, "No current incidents found.", header_font, (80, 255, 120), 30, 250)
 
         else:
-            y = 250
+            y = 280
 
             # =========================================================
             # INCIDENT LIST
@@ -707,7 +793,7 @@ def main():
                 incident_type = incident.get("Type")
                 colour = get_incident_colour(incident_type)
 
-                row_rect = pygame.Rect(30, y - 8, 1180, 42)
+                row_rect = pygame.Rect(30, y - 8, 1220, 42)
                 incident_rows.append((row_rect, incident))
 
                 pygame.draw.rect(screen, (20, 30, 45), row_rect, border_radius=8)
@@ -725,6 +811,20 @@ def main():
                 draw_text(screen, incident_type, normal_font, colour, 190, y)
                 draw_text(screen, incident.get("Location_name"), normal_font, (230, 230, 230), 460, y)
                 draw_text(screen, incident.get("Status"), normal_font, (180, 180, 180), 980, y)
+
+                age_text = get_incident_age_text(incident)
+                age_colour = get_incident_age_colour(incident)
+
+                draw_text(
+                    screen,
+                    age_text,
+                    normal_font,
+                    age_colour,
+                    1150,
+                    y
+                )
+
+
 
                 y += 52
 
