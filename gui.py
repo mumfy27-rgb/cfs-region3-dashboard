@@ -111,6 +111,16 @@ def draw_text(screen, text, font, colour, x, y):
     image = font.render(str(text), True, colour)
     screen.blit(image, (x, y))
 
+def draw_button(screen, font, text, rect, active=False):
+    bg_colour = (160, 30, 30) if active else (35, 45, 65)
+    border_colour = (255, 100, 100) if active else (90, 100, 120)
+
+    pygame.draw.rect(screen, bg_colour, rect, border_radius=8)
+    pygame.draw.rect(screen, border_colour, rect, 2, border_radius=8)
+
+    label = font.render(text, True, (240, 240, 240))
+    screen.blit(label, label.get_rect(center=rect.center))
+
 
 # =========================================================
 # INCIDENT LOGGING
@@ -375,6 +385,7 @@ def main():
 
     incidents = []
     last_updated = "Never"
+    incidents = []
     selected_incident = None
     filter_mode = "STATEWIDE"
     incident_rows = []
@@ -542,6 +553,27 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
 
+                #==================================================================
+                # REGION BUTTON CLICKS
+                #==================================================================
+                for rect, label in filter_buttons:
+                    if rect.collidepoint(mouse_pos):
+                        filter_mode = label
+                        selected_incident = None
+
+                        incidents = [
+                            item for item in all_incidents
+                            if incident_matches_region(item, filter_mode)
+                        ]
+
+                        incidents.sort(key=get_status_priority)
+
+                     
+                        print(f"Filter changed to: {filter_mode}")
+
+
+
+
                 for rect, incident in incident_rows:
                     if rect.collidepoint(mouse_pos):
                         selected_incident = incident
@@ -627,9 +659,34 @@ def main():
         draw_text(screen, f"Current {filter_mode} incidents: {len(incidents)}", header_font, (255, 255, 255), 30, 115)
 
         mode_text = "TEST MODE" if TEST_MODE else "LIVE MODE"
-        draw_text(screen, f"Mode: {mode_text} | 1-6 = Region Filters | S = Statewide", normal_font, (160, 160, 160), 30, 145)
+        draw_text(screen, f"Mode: {mode_text}", normal_font, (160, 160, 160), 30, 145)
 
-        pygame.draw.line(screen, (80, 80, 100), (30, 175), (1570, 175), 3)
+        # ======================================================================================================
+        #  REGION FILTER BUTTONS
+        # ======================================================================================================
+        filter_buttons = []
+
+        button_labels = ["STATEWIDE", "REGION 1", "REGION 2", "REGION 3", "REGION 4", "REGION 5", "REGION 6"]
+
+        button_x = 30
+        button_y = 175
+
+        for label in button_labels:
+            rect = pygame.Rect(button_x, button_y, 180, 42)
+            filter_buttons.append((rect, label))
+
+            draw_button(
+                screen,
+                normal_font,
+                label.replace("REGION", "R"),
+                rect,
+                active=(filter_mode == label)
+            )
+
+            button_x += 190
+
+        pygame.draw.line(screen, (80, 80, 100), (30, 230), (1570, 230), 3)
+
 
         incident_rows = []
 
@@ -638,10 +695,10 @@ def main():
             draw_text(screen, error_message, normal_font, (255, 180, 180), 30, 230)
 
         elif not incidents:
-            draw_text(screen, "No current incidents found.", header_font, (80, 255, 120), 30, 190)
+            draw_text(screen, "No current incidents found.", header_font, (80, 255, 120), 30, 250)
 
         else:
-            y = 205
+            y = 250
 
             # =========================================================
             # INCIDENT LIST
