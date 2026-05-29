@@ -2,6 +2,8 @@
 # CFS INCIDENT DASHBOARD
 # REGION 3 / STATEWIDE OPERATIONS DASHBOARD
 # =========================================================
+import os
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 import time
 import requests
@@ -544,10 +546,22 @@ def main():
                     if rect.collidepoint(mouse_pos):
                         selected_incident = incident
 
-                        last_pager_message = find_matching_pager_message(
-                            latest_pager_text,
-                            selected_incident
-                        )
+                        # Prescribed burns usually come from the public incident feed only,
+                        # so don't try to match them to pager messages.
+                        incident_type = str(selected_incident.get("Type", "")).upper()
+                    
+                        if "PRESCRIBED" in incident_type:
+                            last_pager_message = "No Pager Message available for Prescribed Burn"
+                        
+                        else:
+                            
+                            last_pager_message = find_matching_pager_message(
+                                latest_pager_text,
+                                selected_incident
+                            )
+                        
+
+                        
                        
             if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_1:
