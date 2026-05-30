@@ -19,6 +19,9 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
+from io import BytesIO
+import webbrowser
+import urllib.parse
 
 if platform.system() == "Windows":
     import winsound
@@ -32,6 +35,7 @@ PAGER_URL = "http://paging1.sacfs.org/cfs.php"
 RSS_WARNINGS_URL = "https://www.cfs.sa.gov.au/site/rss/warning_rss.jsp"
 RSS_BANS_URL = "https://www.cfs.sa.gov.au/site/rss/bans_rss.jsp"
 INCIDENT_LOG_FILE = "incident_log.json"
+GOOGLE_MAPS_API_KEY = "AIzaSyAvkUzZOeuGh2BXSVRv99tcNG9Sn6cd0aA"
 
 SCREEN_WIDTH = 1600
 SCREEN_HEIGHT = 900
@@ -110,6 +114,18 @@ def get_incident_colour(incident_type):
 def draw_text(screen, text, font, colour, x, y):
     image = font.render(str(text), True, colour)
     screen.blit(image, (x, y))
+
+def fit_text(text, font, max_width):
+    text = str(text)
+
+    if font.size(text)[0] <= max_width:
+        return text
+
+    while font.size(text + "...")[0] > max_width and len(text) > 0:
+        text = text[:-1]
+
+    return text + "..."
+
 
 def draw_button(screen, font, text, rect, active=False):
     bg_colour = (160, 30, 30) if active else (35, 45, 65)
@@ -230,6 +246,13 @@ def find_matching_pager_message(pager_text, incident):
     location = str(incident.get("Location_name", "")).upper()
     incident_type = str(incident.get("Type", "")).upper()
 
+    incident_date = str(incident.get("Date", ""))
+    incident_time = str(incident.get("Time", ""))
+
+    pager_date = incident_date.replace("/20", "/")
+
+    
+
     ignored_words = [
         "PAGER TEST",
         "TEST ONLY",
@@ -254,6 +277,12 @@ def find_matching_pager_message(pager_text, incident):
         msg = message.upper()
         score = 0
 
+        if pager_date in msg:
+            score += 100
+
+        if incident_time in msg:
+            score += 100
+
         # IGNORE TEST/JUNK
         if any(word in msg for word in ignored_words):
             continue
@@ -273,8 +302,12 @@ def find_matching_pager_message(pager_text, incident):
         # =========================================
         # INCIDENT TYPE MATCHING
         # =========================================
-        if "FIRE" in incident_type and "FIRE" in msg:
-            score += 10
+        if "BUILDING FIRE" in incident_type and "BUILDING FIRE" in msg:
+            score += 100
+
+              
+        elif "FIRE" in incident_type and "FIRE" in msg:
+            score += 20
 
         if "HAZMAT" in incident_type and "HAZMAT" in msg:
             score += 15
@@ -329,6 +362,86 @@ def fetch_rss_feed(url):
         return feed.entries[:5]
     except Exception:
         return []
+    
+#========================================================================================
+# OPEN STREET MAP HELPERS
+# ========================================================================================
+def get_location_coordinates(location):
+    try:
+        town = location.split(",")[0].strip()
+        search_text = f"{town}, South Australia, Australia"
+
+        print("searching map location", search_text)
+
+
+        url = "https://nominatim.openstreetmap.org/search"
+
+        headers = {
+            "User-Agent": "CFS-Region3-Dashboard/1.0"
+        }
+
+        params = {
+            "q": search_text,
+            "format": "json",
+            "limit": 1,
+        }
+
+        response = requests.get(url, headers=headers, params=params, timeout=10)
+        response.raise_for_status()
+
+        results = response.json()
+
+        if not results:
+            return None
+
+
+        return float(results[0]["lat"]), float(results[0]["lon"])
+    
+    except Exception as error:
+        print(f"Location lookup failed {error}")
+        return None
+
+
+def fetch_osm_static_map(location):
+    coords = get_location_coordinates(location)
+    print("Map coords:", coords)
+
+    if coords is None:
+        print("No coordinates found for map")
+        return None
+
+    lat, lon = coords
+
+    try:
+        map_url = (
+            "https://maps.googleapis.com/maps/api/staticmap"
+            f"?center={lat},{lon}"
+            "&zoom=13"
+            "&size=300x200"
+            "&maptype=roadmap"
+            f"&markers=color:red%7C{lat},{lon}"
+            f"&key={GOOGLE_MAPS_API_KEY}"
+        )
+
+        response = requests.get(map_url, timeout=10)
+        print("Google response:", response.status_code)
+        print(response.text[:500])
+        response.raise_for_status()
+
+        image_file = BytesIO(response.content)
+        return pygame.image.load(image_file)
+    
+    except Exception as error:
+        print(f"Map load failed: {error}")
+        return None
+ 
+
+
+
+
+
+
+
 
 #===================================================================================
 # INCIDNT AGE
@@ -668,6 +781,17 @@ def main():
                     if rect.collidepoint(mouse_pos):
                         selected_incident = incident
 
+                        print("Fetching map for:", selected_incident.get("Location_name", ""))
+
+                        selected_map_image = fetch_osm_static_map(
+                            selected_incident.get("Location_name", "")
+                        )
+
+
+
+
+                       
+
                         # Prescribed burns usually come from the public incident feed only,
                         # so don't try to match them to pager messages.
                         incident_type = str(selected_incident.get("Type", "")).upper()
@@ -759,7 +883,7 @@ def main():
         button_labels = ["STATEWIDE", "REGION 1", "REGION 2", "REGION 3", "REGION 4", "REGION 5", "REGION 6"]
 
         button_x = 30
-        button_y = 175
+        button_y = 155
 
         for label in button_labels:
             rect = pygame.Rect(button_x, button_y, 180, 42)
@@ -773,10 +897,10 @@ def main():
                 active=(filter_mode == label)
             )
 
-            button_x += 190
+            button_x += 160
 
-        pygame.draw.line(screen, (80, 80, 100), (30, 230), (1570, 230), 3)
-        draw_text(screen, "INCIDENT", normal_font, (180, 180, 180), 55, 240)
+        pygame.draw.line(screen, (80, 80, 100), (30, 205), (1570, 205), 3)
+        draw_text(screen, "INCIDENT", normal_font, (180, 180, 180), 55, 215)
         draw_text(screen, "TYPE", normal_font, (180, 180, 180), 190, 240)
         draw_text(screen, "LOCATION", normal_font, (180, 180, 180), 460, 240)
         draw_text(screen, "STATUS", normal_font, (180, 180, 180), 980, 240)
@@ -793,7 +917,7 @@ def main():
             draw_text(screen, "No current incidents found.", header_font, (80, 255, 120), 30, 250)
 
         else:
-            y = 280
+            y = 250
 
             # =========================================================
             # INCIDENT LIST
@@ -810,15 +934,22 @@ def main():
 
                 draw_text(screen, incident.get("IncidentNo"), normal_font, colour, 55, y)
 
-                if incident.get("IncidentNo") in new_incident_ids:
-                    flash_value = abs(int(255 * math.sin(flash_timer)))
-                    flash_colour = (255, flash_value, 0)
-
-                    pygame.draw.rect(screen, flash_colour, (1110, y - 4, 70, 30), border_radius=6)
-                    draw_text(screen, "NEW", normal_font, (0, 0, 0), 1125, y)
-
+                
                 draw_text(screen, incident_type, normal_font, colour, 190, y)
-                draw_text(screen, incident.get("Location_name"), normal_font, (230, 230, 230), 460, y)
+                location_text = fit_text(
+                    incident.get("Location_name"),
+                    normal_font,
+                    420
+                )
+
+                draw_text(
+                    screen,
+                    location_text,
+                    normal_font,
+                    (230, 230, 230),
+                    460,
+                    y
+                )
                 draw_text(screen, incident.get("Status"), normal_font, (180, 180, 180), 980, y)
 
                 age_text = get_incident_age_text(incident)
@@ -890,17 +1021,27 @@ def main():
             detail_type = selected_incident.get("Type")
             detail_colour = get_incident_colour(detail_type)
 
-            draw_text(screen, f"Incident: {selected_incident.get('IncidentNo')}", normal_font, detail_colour, 1250, 240)
-            draw_text(screen, f"Type: {detail_type}", normal_font, detail_colour, 1250, 275)
-            draw_text(screen, f"Status: {selected_incident.get('Status')}", normal_font, (220, 220, 220), 1250, 310)
-            draw_text(screen, f"Region: {selected_incident.get('Region')}", normal_font, (220, 220, 220), 1250, 345)
-            draw_text(screen, f"Location: {selected_incident.get('Location_name')}", normal_font, (220, 220, 220), 1250, 380)
-            draw_text(screen, f"Resources: {selected_incident.get('Resources')}", normal_font, (220, 220, 220), 1250, 415)
-            draw_text(screen, f"Aircraft: {selected_incident.get('Aircraft')}", normal_font, (220, 220, 220), 1250, 450)
-            draw_text(screen, f"Date: {selected_incident.get('Date')}", normal_font, (220, 220, 220), 1250, 485)
-            draw_text(screen, f"Time: {selected_incident.get('Time')}", normal_font, (220, 220, 220), 1250, 520)
+            draw_text(screen, f"Incident: {selected_incident.get('IncidentNo')}", normal_font, detail_colour, 1250, 120)
+            draw_text(screen, f"Type: {detail_type}", normal_font, detail_colour, 1250, 150)
+            draw_text(screen, f"Status: {selected_incident.get('Status')}", normal_font, (220, 220, 220), 1250, 180)
+            draw_text(screen, f"Region: {selected_incident.get('Region')}", normal_font, (220, 220, 220), 1250, 210)
+            draw_text(screen, f"Location: {selected_incident.get('Location_name')}", normal_font, (220, 220, 220), 1250, 240)
+            draw_text(screen, f"Resources: {selected_incident.get('Resources')}", normal_font, (220, 220, 220), 1250, 270)
+            draw_text(screen, f"Aircraft: {selected_incident.get('Aircraft')}", normal_font, (220, 220, 220), 1250, 300)
+            draw_text(screen, f"Date: {selected_incident.get('Date')}", normal_font, (220, 220, 220), 1250, 330)
+            draw_text(screen, f"Time: {selected_incident.get('Time')}", normal_font, (220, 220, 220), 1250, 360)
 
-            draw_text(screen, "PAGER MESSAGE:", normal_font, (255, 220, 80), 1250, 570)
+            draw_text(screen, "Map:", normal_font, (255, 220, 80), 1250, 400)
+
+           
+
+            if selected_map_image is not None:
+                screen.blit(selected_map_image, (1250, 430))
+            else:
+                draw_text(screen, "Map not available", normal_font, (180, 180, 180), 1250, 490)
+            
+            
+            draw_text(screen, "PAGER MESSAGE:", normal_font, (255, 220, 80), 1250, 650)
 
             
 
@@ -925,17 +1066,16 @@ def main():
                 
             lines.append(current_line)
 
-            y_pos = 610
+            y_pos = 710
 
-            for line in lines[:6]:
+            for line in lines[:8]:
                 draw_text(screen, line, normal_font, (220, 220, 220), 1250, y_pos)
                 y_pos += 35
 
-        else:
-            draw_text(screen, "Click an incident on the left.", normal_font, (180, 180, 180), 1250, 240)
+            
 
         seconds_until_refresh = int(REFRESH_SECONDS - (time.time() - last_refresh_time))
-        draw_text(screen, f"Refresh in: {max(seconds_until_refresh, 0)} seconds", normal_font, (160, 160, 160), 1250, 930)
+        draw_text(screen, f"Refresh in: {max(seconds_until_refresh, 0)} seconds", normal_font, (160, 160, 160), 1250, 90)
 
         pygame.display.flip()
         clock.tick(60)
