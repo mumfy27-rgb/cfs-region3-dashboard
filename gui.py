@@ -33,8 +33,8 @@ RSS_WARNINGS_URL = "https://www.cfs.sa.gov.au/site/rss/warning_rss.jsp"
 RSS_BANS_URL = "https://www.cfs.sa.gov.au/site/rss/bans_rss.jsp"
 INCIDENT_LOG_FILE = "incident_log.json"
 
-SCREEN_WIDTH = 1920
-SCREEN_HEIGHT = 1080
+SCREEN_WIDTH = 1600
+SCREEN_HEIGHT = 900
 
 REFRESH_SECONDS = 60
 PAGER_REFRESH_SECONDS = 300
@@ -450,7 +450,10 @@ def main():
 
     pygame.init()
 
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+    screen= pygame.display.set_mode(
+        (SCREEN_WIDTH, SCREEN_HEIGHT),
+        pygame.RESIZABLE
+    )
     pygame.display.set_caption("CFS Incident Dashboard")
 
     title_font = pygame.font.SysFont("consolas", 42, bold=True)
@@ -630,6 +633,12 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            if event.type == pygame.VIDEORESIZE:
+                screen = pygame.display.set_mode(
+                    (event.w, event.h),
+                    pygame.RESIZABLE
+                )
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
